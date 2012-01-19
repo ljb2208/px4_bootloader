@@ -98,7 +98,7 @@ class uploader(object):
 	READ_MULTI	= chr(0x28)
 	REBOOT		= chr(0x30)
 	
-	PROG_MULTI_MAX	= 252		# protocol max is 255, must be multiple of 4
+	PROG_MULTI_MAX	= 60		# protocol max is 255, must be multiple of 4
 	READ_MULTI_MAX	= 60		# protocol max is 255, something overflows with >= 64
 
 	def __init__(self, portname):
