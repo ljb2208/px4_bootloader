@@ -30,7 +30,7 @@ LDFLAGS		 = -mthumb -mcpu=cortex-m4 \
 		   -nostartfiles \
 		   -lnosys \
 		   -Tstm32f4.ld \
-		   -L$(LIBOPENCM3)/lib/stm32/f4 \
+		   -L$(LIBOPENCM3)/lib \
 		   -lopencm3_stm32f4 \
 		   -Wl,-gc-sections
 
