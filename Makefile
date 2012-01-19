@@ -15,7 +15,7 @@ DEPS		 = $(patsubst %.o,%.d,$(OBJS))
 EXTRA_DEPS	 = $(MAKEFILE_LIST)
 
 CFLAGS		 = -mthumb -mcpu=cortex-m4 \
-		   -g \
+		   -Os \
 		   -Wall \
 		   -MD \
 		   -fno-builtin \
@@ -23,14 +23,16 @@ CFLAGS		 = -mthumb -mcpu=cortex-m4 \
 		   -DSTM32F4 \
 		   -DOSC_FREQ=24 \
 		   -DAPP_LOAD_ADDRESS=0x08004000 \
-		   -DAPP_SIZE_MAX=0xfc000
+		   -DAPP_SIZE_MAX=0xfc000 \
+		   -ffunction-sections
 
 LDFLAGS		 = -mthumb -mcpu=cortex-m4 \
 		   -nostartfiles \
 		   -lnosys \
 		   -Tstm32f4.ld \
 		   -L$(LIBOPENCM3)/lib/stm32/f4 \
-		   -lopencm3_stm32f4
+		   -lopencm3_stm32f4 \
+		   -Wl,-gc-sections
 
 all:		$(BINARY)
 
