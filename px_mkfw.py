@@ -42,6 +42,7 @@ import json
 import base64
 import zlib
 import time
+import subprocess
 
 #
 # Construct a basic firmware description
@@ -56,7 +57,7 @@ def mkdesc():
 	proto['description']	= ""
 	proto['git_identity']	= ""
 	proto['build_time']	= 0
-	proto['image']		= base64.b64encode(bytearray(1))
+	proto['image']		= base64.b64encode(bytearray())
 
 	return proto
 
@@ -68,7 +69,7 @@ parser.add_argument("--board_revision",	action="store", help="set the board revi
 parser.add_argument("--version",	action="store", help="set a version string")
 parser.add_argument("--summary",	action="store", help="set a brief description")
 parser.add_argument("--description",	action="store", help="set a longer description")
-parser.add_argument("--git_identity",	action="store", help="set the git identity from which the firmware was built")
+parser.add_argument("--git_identity",	action="store", help="the working directory to check for git identity")
 parser.add_argument("--image",		action="store", help="the firmware image")
 args = parser.parse_args()
 
@@ -80,19 +81,23 @@ if args.prototype != None:
 else:
 	desc = mkdesc()
 
+desc['build_time'] 		= int(time.time())
+
 if args.board_id != None:
-	desc['board_id'] = int(args.board_id)
+	desc['board_id']	= int(args.board_id)
 if args.board_revision != None:
-	desc['board_revision'] = int(args.board_revision)
+	desc['board_revision']	= int(args.board_revision)
 if args.version != None:
-	desc['version'] = str(args.version)
+	desc['version']		= str(args.version)
 if args.summary != None:
-	desc['summary'] = str(args.summary)
+	desc['summary']		= str(args.summary)
 if args.description != None:
-	desc['description'] = str(args.description)
+	desc['description']	= str(args.description)
 if args.git_identity != None:
-	desc['git_identity'] = str(args.git_identity)
-desc['build_time'] = int(time.time())
+	cmd = " ".join(["git", "--git-dir", args.git_identity + "/.git", "describe", "--always", "--dirty"])
+	p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout
+	desc['git_identity']	= p.read().strip()
+	p.close()
 if args.image != None:
 	f = open(args.image, "rb")
 	desc['image'] = base64.b64encode(zlib.compress(f.read(),9))
