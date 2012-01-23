@@ -33,10 +33,21 @@
 # Serial firmware uploader for the PX4FMU bootloader
 #
 
-import sys, argparse, binascii, serial, os, struct
+import sys
+import argparse
+import binascii
+import serial
+import os
+import struct
+import json
+import zlib
+import base64
 
 class firmware(object):
 	'''Loads a firmware file'''
+
+	desc = {}
+	image = bytearray()
 
 	#
 	# The .opfw file format that we read is described as:
@@ -60,26 +71,14 @@ class firmware(object):
 	def __init__(self, path):
 
 		# read the file
-		f = open(path, "rb")
+		f = open(path, "r")
+		self.desc = json.load(f)
+		f.close()
 
-		# get the header
-		f.seek(0, os.SEEK_END)
-		if (f.tell() <= 100):
-			raise RuntimeError("firmware file is too small")
-		f.seek(-100, os.SEEK_END)
-		imagelen = f.tell()
-		binheader = f.read(100)
+		self.image = zlib.decompress(base64.b64decode(self.desc['image']))
 
-		# parse the header
-		header = struct.unpack_from('<4sIIBB26s', binheader)
-		if (header[0] != 'OpFw'):
-			raise RuntimeError("bad file signature %" % header[0])
-		self.board_type = header[3]
-		self.board_rev = header[4]
-
-		# get the body data
-		f.seek(0)
-		self.image = f.read(imagelen)
+	def property(self, propname):
+		return self.desc[propname]
 
 
 class uploader(object):
@@ -225,7 +224,7 @@ args = parser.parse_args()
 
 # Load the firmware file
 fw = firmware(args.firmware)
-print("loaded firmware for %x,%x" % (fw.board_type, fw.board_rev))
+print("loaded firmware for %x,%x" % (fw.property('board_id'), fw.property('board_revision')))
 
 # Connect to the device and identify it
 up = uploader(args.port)
@@ -233,7 +232,7 @@ up.check()
 up.identify()
 print("connected to board %x,%x " % (up.board_type, up.board_rev))
 
-if (up.board_type != fw.board_type):
+if up.board_type != fw.property('board_id'):
 	raise RuntimeError("Firmware not suitable for this board")
 
 up.upload(fw)
