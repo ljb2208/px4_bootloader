@@ -58,7 +58,6 @@ def mkdesc():
 	proto['git_identity']	= ""
 	proto['build_time']	= 0
 	proto['image']		= base64.b64encode(bytearray())
-
 	return proto
 
 # Parse commandline

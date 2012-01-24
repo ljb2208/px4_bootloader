@@ -70,4 +70,4 @@ SECTIONS
         end = .;
 }
 
-PROVIDE(_stack = 0x20000800);
+PROVIDE(_stack = 0x20020000);
