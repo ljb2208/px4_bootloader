@@ -38,6 +38,10 @@
 // RESET		resets chip and starts application
 //
 
+#define PX4FMU	(1)
+#define STM32F4DISCOVERY	(2)
+#define PX4FLOW	(3)
+
 #define PROTO_OK		0x10    // 'ok' response
 #define PROTO_FAILED		0x11    // 'fail' response
 #define PROTO_INSYNC		0x12    // 'in sync' byte sent before status
@@ -111,8 +115,24 @@ extern unsigned	cdc_write(uint8_t *buf, unsigned count);
 #define TIMER_DELAY	3
 static volatile unsigned timer[NTIMERS];	/* each timer decrements every millisecond if > 0 */
 
+#if (BOARD == STM32F4DISCOVERY)
+#endif
+
+#if (BOARD == PX4FMU)
 #define LED_ACTIVITY	GPIO15
 #define LED_BOOTLOADER	GPIO14
+#define LED_GPIOPORT	GPIOB
+#define LED_GPIOCLOCK	RCC_AHB1ENR_IOPBEN
+#endif
+
+#if (BOARD == PX4FLOW)
+#define LED_ACTIVITY		GPIO3
+#define LED_BOOTLOADER		GPIO2
+#define LED_TEST			GPIO7
+#define LED_GPIOPORT		GPIOE
+#define LED_GPIOCLOCK	RCC_AHB1ENR_IOPEEN
+#endif
+
 
 /* flash parameters that we should not really know */
 uint32_t flash_sectors[] = {
@@ -131,24 +151,24 @@ uint32_t flash_sectors[] = {
 static unsigned flash_nsectors = sizeof(flash_sectors) / sizeof(flash_sectors[0]);
 
 /* set the boot delay when USB is attached */
-#define BOOTLOADER_DELAY	5000
+#define BOOTLOADER_DELAY	1500
 
 static void
 led_on(unsigned led)
 {
-	gpio_clear(GPIOB, led);
+	gpio_clear(LED_GPIOPORT, led);
 }
 
 static void
 led_off(unsigned led)
 {
-	gpio_set(GPIOB, led);
+	gpio_set(LED_GPIOPORT, led);
 }
 
 static void
 led_toggle(unsigned led)
 {
-	gpio_toggle(GPIOB, led);
+	gpio_toggle(LED_GPIOPORT, led);
 }
 
 static void
@@ -405,16 +425,23 @@ cmd_bad:
 int
 main(void)
 {
+    /* Enable FPU */
+#ifndef SCB_CPACR
+#define SCB_CPACR (*((uint32_t*) (((0xE000E000UL) + 0x0D00UL) + 0x088)))
+#endif
+
+    SCB_CPACR |= ((3UL << 10*2) | (3UL << 11*2)); /* set CP10 Full Access and set CP11 Full Access */
+
 	unsigned timeout;
 
 	/* enable GPIO9 with a pulldown to sniff VBUS */
 	rcc_peripheral_enable_clock(&RCC_AHB1ENR, RCC_AHB1ENR_IOPAEN);
 	gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_PULLDOWN, GPIO9);
 
-        /* set up GPIOs for LEDs */
-        rcc_peripheral_enable_clock(&RCC_AHB1ENR, RCC_AHB1ENR_IOPBEN);
-	gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, 0, GPIO14 | GPIO15);
-	gpio_set_output_options(GPIOB, GPIO_OTYPE_OD, GPIO_OSPEED_2MHZ, GPIO14 | GPIO15);
+	/* set up GPIOs for LEDs */
+	rcc_peripheral_enable_clock(&RCC_AHB1ENR, LED_GPIOCLOCK);
+	gpio_mode_setup(LED_GPIOPORT, GPIO_MODE_OUTPUT, 0, LED_ACTIVITY | LED_BOOTLOADER);
+	gpio_set_output_options(LED_GPIOPORT, GPIO_OTYPE_OD, GPIO_OSPEED_2MHZ, LED_ACTIVITY | LED_BOOTLOADER);
 	led_off(LED_ACTIVITY | LED_BOOTLOADER);
 
 	/* XXX we want a delay here to let the input settle */
@@ -435,16 +462,17 @@ main(void)
 	rcc_clock_setup_hse_3v3(&clock_setup);
 
 	/* start the timer system */
-        systick_set_clocksource(STK_CTRL_CLKSOURCE_AHB);
-        systick_set_reload(168000);	/* 1ms tick, magic number */
-        systick_interrupt_enable();
-        systick_counter_enable();
+	systick_set_clocksource(STK_CTRL_CLKSOURCE_AHB);
+	systick_set_reload(168000);	/* 1ms tick, magic number */
+	systick_interrupt_enable();
+	systick_counter_enable();
 
 	/* setup for USB CDC */
 	cdc_init();
 	nvic_enable_irq(NVIC_OTG_FS_IRQ);
 
-	while (1) {
+	while (1)
+	{
 		/* run the bootloader, possibly coming back after the timeout */
 		bootloader(timeout);
 

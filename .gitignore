@@ -3,3 +3,5 @@ bl.o
 cdcacm.d
 cdcacm.o
 px4fmu_bl.elf
+.cproject
+.project
