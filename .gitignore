@@ -3,3 +3,4 @@ bl.o
 cdcacm.d
 cdcacm.o
 px4fmu_bl.elf
+.DS_Store
