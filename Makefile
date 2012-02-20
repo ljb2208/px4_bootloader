@@ -39,7 +39,7 @@ LDFLAGS		 = -mthumb -mcpu=cortex-m4 -mfloat-abi=hard -mfpu=fpv4-sp-d16 \
 		   -nostartfiles \
 		   -lnosys \
 		   -Tstm32f4.ld \
-		   -L$(LIBOPENCM3)/lib \
+		   -L$(LIBOPENCM3)/lib/stm32/f4/ \
 		   -lopencm3_stm32f4 \
 		   -Wl,-gc-sections
 
