@@ -5,3 +5,4 @@ cdcacm.o
 px4fmu_bl.elf
 .cproject
 .project
+.DS_Store
