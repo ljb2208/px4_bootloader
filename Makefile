@@ -5,13 +5,14 @@
 BINARY		 = px4fmu_bl.elf
 
 LIBOPENCM3	?= /usr/local/arm-none-eabi
+OPENOCD		?= ../../sat/bin/openocd
 
 PX4FMU	= 1
 STM32F4DISCOVERY	= 2
 PX4FLOW	= 3
 
-PX4_BOARD_TYPE	?= PX4FLOW
-#PX4_BOARD_TYPE	?= PX4FMU
+#PX4_BOARD_TYPE	?= PX4FLOW
+PX4_BOARD_TYPE	?= PX4FMU
 #PX4_BOARD_TYPE	?= STM32F4DISCOVERY
 
 CC		 = arm-none-eabi-gcc
@@ -53,5 +54,20 @@ $(BINARY):	$(OBJS) $(EXTRA_DEPS)
 
 clean:
 	rm -f $(OBJS) $(DEPS) $(BINARY)
+
+#upload: all flash flash-bootloader
+upload: all flash-bootloader
+
+flash:
+	$(OPENOCD) --search ../px4_bootloader -f $(JTAGCONFIG) -f stm32f4x.cfg -c init -c "reset halt" -c "flash write_image erase px4fmu.elf" -c "reset run" -c shutdown
+
+flash-bootloader:
+	$(OPENOCD) --search ../px4_bootloader -f $(JTAGCONFIG) -f stm32f4x.cfg -c init -c "reset halt" -c "flash write_image erase px4fmu_bl.elf" -c "reset run" -c shutdown
+
+flash-both:
+	$(OPENOCD) --search ../px4_bootloader -f $(JTAGCONFIG) -f stm32f4x.cfg -c init -c "reset halt" -c "flash write_image erase px4fmu.elf" -c "reset run" -c init -c "reset halt" -c "flash write_image erase px4fmu_bl.elf" -c "reset run" -c shutdown
+
+
+
 
 -include $(DEPS)
