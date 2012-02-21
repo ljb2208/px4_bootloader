@@ -7,6 +7,8 @@ BINARY		 = px4fmu_bl.elf
 LIBOPENCM3	?= /usr/local/arm-none-eabi
 OPENOCD		?= ../../sat/bin/openocd
 
+JTAGCONFIG ?= interface/olimex-jtag-tiny.cfg
+
 PX4FMU	= 1
 STM32F4DISCOVERY	= 2
 PX4FLOW	= 3
@@ -58,14 +60,9 @@ clean:
 #upload: all flash flash-bootloader
 upload: all flash-bootloader
 
-flash:
-	$(OPENOCD) --search ../px4_bootloader -f $(JTAGCONFIG) -f stm32f4x.cfg -c init -c "reset halt" -c "flash write_image erase px4fmu.elf" -c "reset run" -c shutdown
-
 flash-bootloader:
 	$(OPENOCD) --search ../px4_bootloader -f $(JTAGCONFIG) -f stm32f4x.cfg -c init -c "reset halt" -c "flash write_image erase px4fmu_bl.elf" -c "reset run" -c shutdown
 
-flash-both:
-	$(OPENOCD) --search ../px4_bootloader -f $(JTAGCONFIG) -f stm32f4x.cfg -c init -c "reset halt" -c "flash write_image erase px4fmu.elf" -c "reset run" -c init -c "reset halt" -c "flash write_image erase px4fmu_bl.elf" -c "reset run" -c shutdown
 
 
 
