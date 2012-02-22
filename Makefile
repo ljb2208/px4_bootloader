@@ -4,10 +4,11 @@
 
 BINARY		 = px4fmu_bl.elf
 
-LIBOPENCM3	?= /usr/local/arm-none-eabi
+LIBOPENCM3	?= ../libopencm3
 OPENOCD		?= ../../sat/bin/openocd
 
 JTAGCONFIG ?= interface/olimex-jtag-tiny.cfg
+#JTAGCONFIG ?= interface/jtagkey-tiny.cfg
 
 PX4FMU	= 1
 STM32F4DISCOVERY	= 2
@@ -16,6 +17,9 @@ PX4FLOW	= 3
 #PX4_BOARD_TYPE	?= PX4FLOW
 PX4_BOARD_TYPE	?= PX4FMU
 #PX4_BOARD_TYPE	?= STM32F4DISCOVERY
+
+# 5 seconds / 5000 ms default delay
+PX4_BOOTLOADER_DELAY	?= 5000
 
 CC		 = arm-none-eabi-gcc
 
@@ -35,6 +39,7 @@ CFLAGS		 = -mthumb -mcpu=cortex-m4 -mfloat-abi=hard -mfpu=fpv4-sp-d16 \
 		   -DOSC_FREQ=24 \
 		   -DAPP_LOAD_ADDRESS=0x08004000 \
 		   -DAPP_SIZE_MAX=0xfc000 \
+		   -DBOOTLOADER_DELAY=$(PX4_BOOTLOADER_DELAY) \
 		   -DBOARD=$(PX4_BOARD_TYPE) \
 		   -ffunction-sections
 

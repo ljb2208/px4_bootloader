@@ -151,7 +151,9 @@ uint32_t flash_sectors[] = {
 static unsigned flash_nsectors = sizeof(flash_sectors) / sizeof(flash_sectors[0]);
 
 /* set the boot delay when USB is attached */
-#define BOOTLOADER_DELAY	1500
+#ifndef BOOTLOADER_DELAY
+#define BOOTLOADER_DELAY	5000
+#endif
 
 static void
 led_on(unsigned led)
