@@ -42,6 +42,7 @@ import struct
 import json
 import zlib
 import base64
+import time
 
 class firmware(object):
 	'''Loads a firmware file'''
@@ -101,7 +102,19 @@ class uploader(object):
 	READ_MULTI_MAX	= 60		# protocol max is 255, something overflows with >= 64
 
 	def __init__(self, portname):
-		self.port = serial.Serial(portname, 115200, timeout=10)
+		print "Uploader ready. Waiting for USB device to appear.."
+		waittick	= 0.1		# Wait 0.1 seconds per wait attempt
+		maxwait		= 20		# Wait max. 20 seconds
+		waittime    = 0			# Time waited so far, initially zero
+		while ((not os.path.exists(portname) and waittime < maxwait)):
+			time.sleep(waittick)
+			waittime += waittick
+		if (not os.path.exists(portname)):
+			print "Timeout: PX4 device not found. Is the USB cable connected?"
+			print "\t tried port at " + portname
+			sys.exit(1)
+		else:
+			self.port = serial.Serial(portname, 115200, timeout=10)
 
 	def __send(self, c):
 #		print("send " + binascii.hexlify(c))
@@ -224,7 +237,7 @@ args = parser.parse_args()
 
 # Load the firmware file
 fw = firmware(args.firmware)
-print("loaded firmware for %x,%x" % (fw.property('board_id'), fw.property('board_revision')))
+print("Loaded firmware for %x,%x" % (fw.property('board_id'), fw.property('board_revision')))
 
 # Connect to the device and identify it
 up = uploader(args.port)

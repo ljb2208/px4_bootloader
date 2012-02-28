@@ -19,7 +19,7 @@ PX4_BOARD_TYPE	?= PX4FMU
 #PX4_BOARD_TYPE	?= STM32F4DISCOVERY
 
 # 5 seconds / 5000 ms default delay
-PX4_BOOTLOADER_DELAY	?= 5000
+PX4_BOOTLOADER_DELAY	?= 3000
 
 CC		 = arm-none-eabi-gcc
 
