@@ -104,7 +104,7 @@ class uploader(object):
 	def __init__(self, portname):
 		print "Uploader ready. Waiting for USB device to appear.."
 		waittick	= 0.1		# Wait 0.1 seconds per wait attempt
-		maxwait		= 20		# Wait max. 20 seconds
+		maxwait		= 15		# Wait max. 15 seconds
 		waittime    = 0			# Time waited so far, initially zero
 		while ((not os.path.exists(portname) and waittime < maxwait)):
 			time.sleep(waittick)
