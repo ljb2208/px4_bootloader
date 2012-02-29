@@ -114,7 +114,7 @@ class uploader(object):
 			print "\t tried port at " + portname
 			sys.exit(1)
 		else:
-			self.port = serial.Serial(portname, 115200, timeout=10)
+			self.port = serial.Serial(portname, 921600, timeout=10)
 
 	def __send(self, c):
 #		print("send " + binascii.hexlify(c))
