@@ -102,19 +102,36 @@ class uploader(object):
 	READ_MULTI_MAX	= 60		# protocol max is 255, something overflows with >= 64
 
 	def __init__(self, portname):
-		print "Uploader ready. Waiting for USB device to appear.."
+		print "Uploader ready. Waiting for USB device",
+		print portname,
+		print "to appear.."
+		
+		portnames = portname.split(",");
+		
 		waittick	= 0.1		# Wait 0.1 seconds per wait attempt
-		maxwait		= 15		# Wait max. 15 seconds
+		maxwait		= 12		# Wait max. 15 seconds
 		waittime    = 0			# Time waited so far, initially zero
-		while ((not os.path.exists(portname) and waittime < maxwait)):
+		port_exists = 0
+		while ((not port_exists) and (waittime < maxwait)):
 			time.sleep(waittick)
 			waittime += waittick
-		if (not os.path.exists(portname)):
-			print "Timeout: PX4 device not found. Is the USB cable connected?"
+			for item in portnames:
+				try:
+					self.port = serial.Serial(item, 921600, timeout=10)
+					port_exists = 1
+					port_found = item
+				except serial.serialutil.SerialException:
+					port_exists = 0
+			# Write out progress indicator
+			sys.stdout.write(".")
+			sys.stdout.flush()
+		if (not port_exists):
+			print "\nTimeout: PX4 device not found. Is the USB cable connected?"
 			print "\t tried port at " + portname
 			sys.exit(1)
 		else:
-			self.port = serial.Serial(portname, 921600, timeout=10)
+			print "\nFound port: ",
+			print port_found
 
 	def __send(self, c):
 #		print("send " + binascii.hexlify(c))
