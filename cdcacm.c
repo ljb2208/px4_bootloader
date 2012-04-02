@@ -262,21 +262,9 @@ cfini()
 }
 
 int
-cin(unsigned timeout)
+cin(void)
 {
-	int c = -1;
-
-	/* start the timeout */
-	timer[TIMER_CIN] = timeout;
-
-	do {
-		c = buf_get();
-		if (c >= 0)
-			break;
-
-	} while (timer[TIMER_CIN] > 0);
-
-	return c;
+	return buf_get();
 }
 
 void

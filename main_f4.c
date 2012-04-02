@@ -44,24 +44,82 @@ uint32_t flash_sectors[] = {
 };
 unsigned flash_nsectors = sizeof(flash_sectors) / sizeof(flash_sectors[0]);
 
-/* Board-specific LED configuration */
-led_info_t led_info = {
 #ifdef BOARD_FMU
-	.pin_activity	= GPIO15,
-	.pin_bootloader	= GPIO14,
-	.gpio_port	= GPIOB,
-	.gpio_clock	= RCC_AHB1ENR_IOPBEN
+# define BOARD_PIN_LED_ACTIVITY		GPIO15
+# define BOARD_PIN_LED_BOOTLOADER	GPIO14
+# define BOARD_PORT_LEDS		GPIOB
+# define BOARD_CLOCK_LEDS		RCC_AHB1ENR_IOPBEN
 #endif
+
 #ifdef BOARD_FLOW
-	.pin_activity	= GPIO3,
-	.pin_bootloader	= GPIO2,
-	.gpio_port	= GPIOE,
-	.gpio_clock	= RCC_AHB1ENR_IOPEEN
+# define BOARD_PIN_LED_ACTIVITY		GPIO3
+# define BOARD_PIN_LED_BOOTLOADER	GPIO2
+# define BOARD_PORT_LEDS		GPIOE
+# define BOARD_CLOCK_LEDS		RCC_AHB1ENR_IOPEEN
 #endif
+
 #ifdef BOARD_DISCOVERY
-# error No LED configuration for Discovery board - see the schematic
+# error No config for Discovery board yet
 #endif
-};
+
+void
+board_init(void)
+{
+	/* initialise LEDs */
+	rcc_peripheral_enable_clock(&RCC_AHB1ENR, BOARD_CLOCK_LEDS);
+	gpio_mode_setup(
+		BOARD_PORT_LEDS, 
+		GPIO_MODE_OUTPUT, 
+		0,
+		BOARD_PIN_LED_BOOTLOADER | BOARD_PIN_LED_ACTIVITY);
+	gpio_set_output_options(
+		BOARD_PORT_LEDS,
+		GPIO_OTYPE_OD,
+		GPIO_OSPEED_2MHZ,
+		BOARD_PIN_LED_BOOTLOADER | BOARD_PIN_LED_ACTIVITY);
+	gpio_set(
+		BOARD_PORT_LEDS,
+		BOARD_PIN_LED_BOOTLOADER | BOARD_PIN_LED_ACTIVITY);
+}
+
+void
+led_on(unsigned led)
+{
+	switch (led) {
+	case LED_ACTIVITY:
+		gpio_clear(BOARD_PORT_LEDS, BOARD_PIN_LED_ACTIVITY);
+		break;
+	case LED_BOOTLOADER:
+		gpio_clear(BOARD_PORT_LEDS, BOARD_PIN_LED_BOOTLOADER);
+		break;
+	}
+}
+
+void
+led_off(unsigned led)
+{
+	switch (led) {
+	case LED_ACTIVITY:
+		gpio_set(BOARD_PORT_LEDS, BOARD_PIN_LED_ACTIVITY);
+		break;
+	case LED_BOOTLOADER:
+		gpio_set(BOARD_PORT_LEDS, BOARD_PIN_LED_BOOTLOADER);
+		break;
+	}
+}
+
+void
+led_toggle(unsigned led)
+{
+	switch (led) {
+	case LED_ACTIVITY:
+		gpio_toggle(BOARD_PORT_LEDS, BOARD_PIN_LED_ACTIVITY);
+		break;
+	case LED_BOOTLOADER:
+		gpio_toggle(BOARD_PORT_LEDS, BOARD_PIN_LED_BOOTLOADER);
+		break;
+	}
+}
 
 /* we should know this, but we don't */
 #ifndef SCB_CPACR
@@ -80,15 +138,8 @@ main(void)
 	rcc_peripheral_enable_clock(&RCC_AHB1ENR, RCC_AHB1ENR_IOPAEN);
 	gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_PULLDOWN, GPIO9);
 
-	/* set up GPIOs for LEDs */
-	rcc_peripheral_enable_clock(&RCC_AHB1ENR, led_info.gpio_clock);
-	gpio_mode_setup(led_info.gpio_port, GPIO_MODE_OUTPUT, 0, LED_ACTIVITY | LED_BOOTLOADER);
-	gpio_set_output_options(
-		led_info.gpio_port, 
-		GPIO_OTYPE_OD,
-		GPIO_OSPEED_2MHZ,
-		led_info.pin_activity | led_info.pin_bootloader);
-	gpio_set(led_info.gpio_port, led_info.pin_activity | led_info.pin_bootloader);
+	/* do board-specific initialisation */
+	board_init();
 
 	/* XXX we want a delay here to let the input settle */
 	if (gpio_get(GPIOA, GPIO9) != 0) {

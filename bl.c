@@ -97,60 +97,6 @@ volatile unsigned timer[NTIMERS];
 #define BOOTLOADER_DELAY	5000
 #endif
 
-static void
-led_on(unsigned led)
-{
-	unsigned pin;
-
-	switch (led) {
-		case LED_ACTIVITY:
-			pin = led_info.pin_activity;
-			break;
-		case LED_BOOTLOADER:
-			pin = led_info.pin_bootloader;
-			break;
-		default:
-			return;
-	}
-	gpio_clear(led_info.gpio_port, pin);
-}
-
-static void
-led_off(unsigned led)
-{
-	unsigned pin;
-
-	switch (led) {
-		case LED_ACTIVITY:
-			pin = led_info.pin_activity;
-			break;
-		case LED_BOOTLOADER:
-			pin = led_info.pin_bootloader;
-			break;
-		default:
-			return;
-	}
-	gpio_set(led_info.gpio_port, pin);
-}
-
-static void
-led_toggle(unsigned led)
-{
-	unsigned pin;
-
-	switch (led) {
-		case LED_ACTIVITY:
-			pin = led_info.pin_activity;
-			break;
-		case LED_BOOTLOADER:
-			pin = led_info.pin_bootloader;
-			break;
-		default:
-			return;
-	}
-	gpio_toggle(led_info.gpio_port, pin);
-}
-
 static unsigned head, tail;
 static uint8_t rx_buf[256];
 
@@ -256,7 +202,23 @@ sync_response(void)
 	cout(data, sizeof(data));
 }
 
-volatile bool badcmd = false;
+static int
+cin_wait(unsigned timeout)
+{
+	int c = -1;
+
+	/* start the timeout */
+	timer[TIMER_CIN] = timeout;
+
+	do {
+		c = cin();
+		if (c >= 0)
+			break;
+
+	} while (timer[TIMER_CIN] > 0);
+
+	return c;
+}
 
 void
 bootloader(unsigned timeout)
@@ -285,7 +247,7 @@ bootloader(unsigned timeout)
 				return;
 
 			/* try to get a byte from the host */
-			c = cin(0);
+			c = cin_wait(0);
 
 		} while (c < 0);
 		led_on(LED_ACTIVITY);
@@ -297,7 +259,7 @@ bootloader(unsigned timeout)
 		case PROTO_CHIP_ERASE:
 		case PROTO_CHIP_VERIFY:
 		case PROTO_DEBUG:
-			if (cin(100) != PROTO_EOC)
+			if (cin_wait(100) != PROTO_EOC)
 				goto cmd_bad;
 		}
 
@@ -329,14 +291,14 @@ bootloader(unsigned timeout)
 			break;
 
 		case PROTO_PROG_MULTI:		// program bytes
-			count = cin(100);
+			count = cin_wait(100);
 			if (count % 4)
 				goto cmd_bad;
 			if ((address + count) > fw_end)
 				goto cmd_bad;
 			for (i = 0; i < count; i++)
-				flash_buffer.c[i] = cin(100);
-			if (cin(100) != PROTO_EOC)
+				flash_buffer.c[i] = cin_wait(100);
+			if (cin_wait(100) != PROTO_EOC)
 				goto cmd_bad;
 			if (address == board_info.fw_base) {
 				// save the first word and don't program it until everything else is done
@@ -350,8 +312,8 @@ bootloader(unsigned timeout)
 			break;
 
 		case PROTO_READ_MULTI:			// readback bytes
-			count = cin(100);
-			if (cin(100) != PROTO_EOC)
+			count = cin_wait(100);
+			if (cin_wait(100) != PROTO_EOC)
 				goto cmd_bad;
 			if ((address + count) > fw_end)
 				goto cmd_bad;
@@ -376,14 +338,12 @@ bootloader(unsigned timeout)
 
 		// send the sync response for this command
 		sync_response();
-		badcmd = false;
 		continue;
 cmd_bad:
 		// Currently we do nothing & let the programming tool time out
 		// if that's what it wants to do.
 		// Let the initial delay keep counting down so that we ignore
 		// random chatter from a device.
-		badcmd = true;
 		while(true);
 		continue;
 	}

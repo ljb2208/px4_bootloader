@@ -4,11 +4,8 @@
 
 #pragma once
 
-#define LED_ACTIVITY	1
-#define LED_BOOTLOADER	2
-
 /* bootloader functions */
-extern void jump_to_app();
+extern void jump_to_app(void);
 extern void sys_tick_handler(void);
 extern void bootloader(unsigned timeout);
 
@@ -28,6 +25,15 @@ extern int buf_get(void);
 extern uint32_t flash_sectors[];
 extern unsigned flash_nsectors;
 
+/* board functions */
+#define LED_ACTIVITY	1
+#define LED_BOOTLOADER	2
+
+extern void board_init(void);
+extern void led_on(unsigned led);
+extern void led_off(unsigned led);
+extern void led_toggle(unsigned led);
+
 /* LED configuration from main_*.c */
 typedef struct {
 	uint32_t	pin_activity;
@@ -38,7 +44,7 @@ typedef struct {
 extern led_info_t led_info;
 
 /* interface in/output from interface module */
-extern void cinit();
-extern void cfini();
-extern int cin(unsigned timeout);
+extern void cinit(void);
+extern void cfini(void);
+extern int cin(void);
 extern void cout(uint8_t *buf, unsigned len);
