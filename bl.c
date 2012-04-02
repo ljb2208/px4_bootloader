@@ -87,13 +87,6 @@ struct _board_info {
 	.desc_size	= 0,	
 };
 
-volatile unsigned timer[NTIMERS];
-
-/* set the boot delay when USB is attached */
-#ifndef BOOTLOADER_DELAY
-#define BOOTLOADER_DELAY	5000
-#endif
-
 static unsigned head, tail;
 static uint8_t rx_buf[256];
 
@@ -163,6 +156,8 @@ jump_to_app()
 	/* extract the stack and entrypoint from the app vector table and go */
 	do_jump(app_base[0], app_base[1]);
 }
+
+volatile unsigned timer[NTIMERS];
 
 void
 sys_tick_handler(void)

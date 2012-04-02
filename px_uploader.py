@@ -117,7 +117,7 @@ class uploader(object):
 			waittime += waittick
 			for item in portnames:
 				try:
-					self.port = serial.Serial(item, 921600, timeout=10)
+					self.port = serial.Serial(item, 115200, timeout=10)
 					port_exists = 1
 					port_found = item
 				except serial.serialutil.SerialException:
@@ -156,7 +156,7 @@ class uploader(object):
 	def __sync(self):
 		# send a stream of ignored bytes longer than the longest possible conversation
 		# that we might still have in progress
-		self.__send(uploader.NOP * (uploader.PROG_MULTI_MAX + 2))
+#		self.__send(uploader.NOP * (uploader.PROG_MULTI_MAX + 2))
 		self.port.flushInput()
 		self.__send(uploader.GET_SYNC 
 				+ uploader.EOC)

@@ -248,7 +248,7 @@ otg_fs_isr(void)
 }
 
 void
-cinit(void)
+cinit(void *config)
 {
 	cdc_init();
 	nvic_enable_irq(NVIC_OTG_FS_IRQ);

@@ -7,3 +7,4 @@ px4fmu_bl.elf
 .project
 .DS_Store
 *~
+px4discovery_bl.elf

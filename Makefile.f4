@@ -9,7 +9,7 @@ OPENOCD		?= ../../sat/bin/openocd
 JTAGCONFIG ?= interface/olimex-jtag-tiny.cfg
 #JTAGCONFIG ?= interface/jtagkey-tiny.cfg
 
-# 5 seconds / 5000 ms default delay
+# 3 seconds / 3000 ms default delay
 PX4_BOOTLOADER_DELAY	?= 3000
 
 CC		 = arm-none-eabi-gcc
@@ -18,15 +18,17 @@ SRCS		 = $(COMMON_SRCS) main_f4.c
 ifeq ($(INTERFACE),USB)
 SRCS		+= cdcacm.c
 endif
+ifeq ($(INTERFACE),USART)
+SRCS		+= usart.c
+endif
 
-FLAGS		+= -mthumb -mcpu=cortex-m4 -mfloat-abi=hard -mfpu=fpv4-sp-d16 \
+FLAGS		+= -mthumb -mcpu=cortex-m4 \
 		   -DSTM32F4 \
-		   -DOSC_FREQ=24 \
 		   -DAPP_LOAD_ADDRESS=0x08004000 \
 		   -DAPP_SIZE_MAX=0xfc000 \
 		   -DBOOTLOADER_DELAY=$(PX4_BOOTLOADER_DELAY) \
 		   -DBOARD_$(BOARD) \
-		   -INTERFACE_$(INTERFACE) \
+		   -DINTERFACE_$(INTERFACE) \
 		   -Tstm32f4.ld \
 		   -L$(LIBOPENCM3)/lib/stm32/f4/ \
 		   -lopencm3_stm32f4 \

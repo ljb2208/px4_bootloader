@@ -5,7 +5,7 @@
 #
 # Paths to common dependencies
 #
-export LIBOPENCM3	?= ../libopencm3
+export LIBOPENCM3	?= ../../libopencm3/libopencm3
 
 #
 # Tools
@@ -15,7 +15,7 @@ export CC	 	 = arm-none-eabi-gcc
 #
 # Common configuration
 #
-export FLAGS		 = -Os \
+export FLAGS		 = -g -Os \
 			   -Wall \
 			   -fno-builtin \
 			   -I$(LIBOPENCM3)/include \
@@ -29,19 +29,19 @@ export COMMON_SRCS	 = bl.c
 #
 # Bootloaders to build
 #
-TARGETS			 = px4fmu_bl
+TARGETS			 = px4fmu_bl stm32f4discovery_bl
 # px4io_bl px4flow_bl
 
 all: $(TARGETS)
 
 clean:
-	rm -f $(TARGETS)
+	rm -f *.elf
 
 px4fmu_bl:
 	make -f Makefile.f4 TARGET=fmu INTERFACE=USB BOARD=FMU
 
 stm32f4discovery_bl:
-	make -f Makefile.f4 TARGET=fmu INTERFACE=USB BOARD=DISCOVERY
+	make -f Makefile.f4 TARGET=discovery INTERFACE=USART BOARD=DISCOVERY
 
 px4flow_bl:
 	make -f Makefile.f4 TARGET=flow INTERFACE=USB BOARD=FLOW
