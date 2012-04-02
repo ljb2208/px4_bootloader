@@ -1,5 +1,5 @@
 /*
- * Simple USB CDC/ACM bootloader for STM32F4.
+ * Common bootloader logic.
  */
 
 #include <stdlib.h>
