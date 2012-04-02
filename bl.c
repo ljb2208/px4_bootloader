@@ -11,10 +11,7 @@
 # include <libopencm3/stm32/f4/flash.h>
 # include <libopencm3/stm32/f4/scb.h>
 #endif
-
 #include <libopencm3/stm32/systick.h>
-#include <libopencm3/stm32/nvic.h>
-//#include <libopencm3/usb/usbd.h>
 
 #include "bl.h"
 
@@ -233,6 +230,17 @@ bootloader(unsigned timeout)
 		uint8_t		c[256];
 		uint32_t	w[64];
 	} flash_buffer;
+	static bool	timer_init_done;
+
+	if (!timer_init_done) {		
+		/* start the timer system */
+		systick_set_clocksource(STK_CTRL_CLKSOURCE_AHB);
+		systick_set_reload(168000);	/* 1ms tick, magic number */
+		systick_interrupt_enable();
+		systick_counter_enable();
+
+		timer_init_done = true;
+	}
 
 	/* if we are working with a timeout, start it running */
 	if (timeout)

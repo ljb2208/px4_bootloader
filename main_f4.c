@@ -1,15 +1,12 @@
 /*
- * Simple USB CDC/ACM bootloader for STM32F4.
+ * STM32F4 board support for the bootloader.
+ *
  */
 
 #include <stdlib.h>
 #include <libopencm3/stm32/f4/rcc.h>
 #include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/f4/flash.h>
-#include <libopencm3/stm32/f4/scb.h>
-#include <libopencm3/stm32/systick.h>
-#include <libopencm3/stm32/nvic.h>
-#include <libopencm3/usb/usbd.h>
 
 #include "bl.h"
 
@@ -123,46 +120,50 @@ led_toggle(unsigned led)
 
 /* we should know this, but we don't */
 #ifndef SCB_CPACR
-# define SCB_CPACR (*((uint32_t*) (((0xE000E000UL) + 0x0D00UL) + 0x088)))
+# define SCB_CPACR (*((volatile uint32_t *) (((0xE000E000UL) + 0x0D00UL) + 0x088)))
 #endif
 
 int
 main(void)
 {
-	unsigned timeout;
+	unsigned timeout = 0;
 
-	/* Enable FPU */
+	/* Enable the FPU before we hit any FP instructions */
 	SCB_CPACR |= ((3UL << 10*2) | (3UL << 11*2)); /* set CP10 Full Access and set CP11 Full Access */
 
+#ifdef INTERFACE_USB
 	/* enable GPIO9 with a pulldown to sniff VBUS */
 	rcc_peripheral_enable_clock(&RCC_AHB1ENR, RCC_AHB1ENR_IOPAEN);
 	gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_PULLDOWN, GPIO9);
+#endif
 
 	/* do board-specific initialisation */
 	board_init();
 
-	/* XXX we want a delay here to let the input settle */
-	if (gpio_get(GPIOA, GPIO9) != 0) {
-		/* USB is connected; first time in the bootloader we will exit after the timeout */
+#ifdef INTERFACE_USB
+	/* check for USB connection - if present, we will wait in the bootloader for a while */
+	if (gpio_get(GPIOA, GPIO9) != 0)
 		timeout = BOOTLOADER_DELAY;
-	} else {
-		/* USB is not connected; try to boot immediately */
+#endif
+#ifdef INTERFACE_USART
+	/* XXX sniff for a USART connection to decide whether to wait in the bootloader */
+	timeout = BOOTLOADER_DELAY;
+#endif
+
+	/* XXX we could look at the backup SRAM to check for stay-in-bootloader instructions */
+
+	/* if we aren't expected to wait in the bootloader, try to boot immediately */
+	if (timeout == 0) {
+		/* try to boot immediately */
 		jump_to_app();
 
 		/* if we returned, there is no app; go to the bootloader and stay there */
 		timeout = 0;
 	}
 
-	/* XXX we could look at the backup SRAM to check for stay-in-bootloader instructions */
-
 	/* configure the clock for bootloader activity */
 	rcc_clock_setup_hse_3v3(&clock_setup);
 
-	/* start the timer system */
-	systick_set_clocksource(STK_CTRL_CLKSOURCE_AHB);
-	systick_set_reload(168000);	/* 1ms tick, magic number */
-	systick_interrupt_enable();
-	systick_counter_enable();
 
 	/* start the interface */
 	cinit();
