@@ -15,7 +15,7 @@ export CC	 	 = arm-none-eabi-gcc
 #
 # Common configuration
 #
-export FLAGS		 = -g -Os \
+export FLAGS		 = -Os \
 			   -Wall \
 			   -fno-builtin \
 			   -I$(LIBOPENCM3)/include \
@@ -41,7 +41,7 @@ px4fmu_bl:
 	make -f Makefile.f4 TARGET=fmu INTERFACE=USB BOARD=FMU
 
 stm32f4discovery_bl:
-	make -f Makefile.f4 TARGET=discovery INTERFACE=USART BOARD=DISCOVERY
+	make -f Makefile.f4 TARGET=discovery INTERFACE=USB BOARD=DISCOVERY
 
 px4flow_bl:
 	make -f Makefile.f4 TARGET=flow INTERFACE=USB BOARD=FLOW

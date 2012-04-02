@@ -278,9 +278,5 @@ cout(uint8_t *buf, unsigned count)
 
 		count -= sent;
 		buf += sent;
-
-		/* this is actually a fatal error */
-		if (sent < len)
-			break;
 	}
 }
