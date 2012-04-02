@@ -38,13 +38,13 @@ clean:
 	rm -f $(TARGETS)
 
 px4fmu_bl:
-	make -f Makefile.f4 TARGET=fmu INTERFACE=USB BOARD=1
+	make -f Makefile.f4 TARGET=fmu INTERFACE=USB BOARD=FMU
 
 stm32f4discovery_bl:
-	make -f Makefile.f4 TARGET=fmu INTERFACE=USB BOARD=2
+	make -f Makefile.f4 TARGET=fmu INTERFACE=USB BOARD=DISCOVERY
 
 px4flow_bl:
-	make -f Makefile.f4 TARGET=flow INTERFACE=USB BOARD=3
+	make -f Makefile.f4 TARGET=flow INTERFACE=USB BOARD=FLOW
 
 px4io_bl:
-	make -f Makefile.f1 TARGET=io INTERFACE=I2C BOARD=4
+	make -f Makefile.f1 TARGET=io INTERFACE=I2C BOARD=IO

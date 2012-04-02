@@ -14,8 +14,7 @@ PX4_BOOTLOADER_DELAY	?= 3000
 
 CC		 = arm-none-eabi-gcc
 
-SRCS		 = $(COMMON_SRCS) 
-#main_f4.c
+SRCS		 = $(COMMON_SRCS) main_f4.c
 ifeq ($(INTERFACE),USB)
 SRCS		+= cdcacm.c
 endif
@@ -26,7 +25,7 @@ FLAGS		+= -mthumb -mcpu=cortex-m4 -mfloat-abi=hard -mfpu=fpv4-sp-d16 \
 		   -DAPP_LOAD_ADDRESS=0x08004000 \
 		   -DAPP_SIZE_MAX=0xfc000 \
 		   -DBOOTLOADER_DELAY=$(PX4_BOOTLOADER_DELAY) \
-		   -DBOARD=$(BOARD) \
+		   -DBOARD_$(BOARD) \
 		   -INTERFACE_$(INTERFACE) \
 		   -Tstm32f4.ld \
 		   -L$(LIBOPENCM3)/lib/stm32/f4/ \

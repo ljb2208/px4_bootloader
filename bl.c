@@ -2,14 +2,21 @@
  * Common bootloader logic.
  */
 
+#include <inttypes.h>
 #include <stdlib.h>
-#include <libopencm3/stm32/f4/rcc.h>
-#include <libopencm3/stm32/f4/gpio.h>
-#include <libopencm3/stm32/f4/flash.h>
-#include <libopencm3/stm32/f4/scb.h>
+
+#ifdef STM32F4
+# include <libopencm3/stm32/f4/rcc.h>
+# include <libopencm3/stm32/f4/gpio.h>
+# include <libopencm3/stm32/f4/flash.h>
+# include <libopencm3/stm32/f4/scb.h>
+#endif
+
 #include <libopencm3/stm32/systick.h>
 #include <libopencm3/stm32/nvic.h>
-#include <libopencm3/usb/usbd.h>
+//#include <libopencm3/usb/usbd.h>
+
+#include "bl.h"
 
 // bootloader flash update protocol.
 //
@@ -38,10 +45,6 @@
 // RESET		resets chip and starts application
 //
 
-#define PX4FMU	(1)
-#define STM32F4DISCOVERY	(2)
-#define PX4FLOW	(3)
-
 #define PROTO_OK		0x10    // 'ok' response
 #define PROTO_FAILED		0x11    // 'fail' response
 #define PROTO_INSYNC		0x12    // 'in sync' byte sent before status
@@ -60,20 +63,6 @@
 
 #define PROTO_PROG_MULTI_MAX    64	// maximum PROG_MULTI size
 #define PROTO_READ_MULTI_MAX    255	// size of the size field
-
-static const clock_scale_t clock_setup =
-{
-	.pllm = OSC_FREQ,
-	.plln = 336,
-	.pllp = 2,
-	.pllq = 7,
-	.hpre = RCC_CFGR_HPRE_DIV_NONE,
-	.ppre1 = RCC_CFGR_HPRE_DIV_4,
-	.ppre2 = RCC_CFGR_HPRE_DIV_2,
-	.flash_config = FLASH_ICE | FLASH_DCE | FLASH_LATENCY_5WS,
-	.apb1_frequency = 42000000,
-	.apb2_frequency = 84000000,
-};
 
 /* XXX interim - something that looks like a PiOS board info blob */
 /* XXX should come from the build environment */
@@ -101,54 +90,7 @@ struct _board_info {
 	.desc_size	= 0,	
 };
 
-/* USB CDC interface functions in cdcacm.c */
-extern void	cdc_init(void);
-extern void	cdc_disconnect(void);
-extern void	cdc_reconnect(void);
-extern unsigned	cdc_read(uint8_t *buf, unsigned count);
-extern unsigned	cdc_write(uint8_t *buf, unsigned count);
-
-#define NTIMERS		4
-#define TIMER_BL_WAIT	0
-#define TIMER_CIN	1
-#define TIMER_LED	2
-#define TIMER_DELAY	3
-static volatile unsigned timer[NTIMERS];	/* each timer decrements every millisecond if > 0 */
-
-#if (BOARD == STM32F4DISCOVERY)
-#endif
-
-#if (BOARD == PX4FMU)
-#define LED_ACTIVITY	GPIO15
-#define LED_BOOTLOADER	GPIO14
-#define LED_GPIOPORT	GPIOB
-#define LED_GPIOCLOCK	RCC_AHB1ENR_IOPBEN
-#endif
-
-#if (BOARD == PX4FLOW)
-#define LED_ACTIVITY		GPIO3
-#define LED_BOOTLOADER		GPIO2
-#define LED_TEST			GPIO7
-#define LED_GPIOPORT		GPIOE
-#define LED_GPIOCLOCK	RCC_AHB1ENR_IOPEEN
-#endif
-
-
-/* flash parameters that we should not really know */
-uint32_t flash_sectors[] = {
-	FLASH_SECTOR_1,	
-	FLASH_SECTOR_2,	
-	FLASH_SECTOR_3,	
-	FLASH_SECTOR_4,	
-	FLASH_SECTOR_5,	
-	FLASH_SECTOR_6,	
-	FLASH_SECTOR_7,	
-	FLASH_SECTOR_8,	
-	FLASH_SECTOR_9,	
-	FLASH_SECTOR_10,	
-	FLASH_SECTOR_11,	
-};
-static unsigned flash_nsectors = sizeof(flash_sectors) / sizeof(flash_sectors[0]);
+volatile unsigned timer[NTIMERS];
 
 /* set the boot delay when USB is attached */
 #ifndef BOOTLOADER_DELAY
@@ -158,19 +100,81 @@ static unsigned flash_nsectors = sizeof(flash_sectors) / sizeof(flash_sectors[0]
 static void
 led_on(unsigned led)
 {
-	gpio_clear(LED_GPIOPORT, led);
+	unsigned pin;
+
+	switch (led) {
+		case LED_ACTIVITY:
+			pin = led_info.pin_activity;
+			break;
+		case LED_BOOTLOADER:
+			pin = led_info.pin_bootloader;
+			break;
+		default:
+			return;
+	}
+	gpio_clear(led_info.gpio_port, pin);
 }
 
 static void
 led_off(unsigned led)
 {
-	gpio_set(LED_GPIOPORT, led);
+	unsigned pin;
+
+	switch (led) {
+		case LED_ACTIVITY:
+			pin = led_info.pin_activity;
+			break;
+		case LED_BOOTLOADER:
+			pin = led_info.pin_bootloader;
+			break;
+		default:
+			return;
+	}
+	gpio_set(led_info.gpio_port, pin);
 }
 
 static void
 led_toggle(unsigned led)
 {
-	gpio_toggle(LED_GPIOPORT, led);
+	unsigned pin;
+
+	switch (led) {
+		case LED_ACTIVITY:
+			pin = led_info.pin_activity;
+			break;
+		case LED_BOOTLOADER:
+			pin = led_info.pin_bootloader;
+			break;
+		default:
+			return;
+	}
+	gpio_toggle(led_info.gpio_port, pin);
+}
+
+static unsigned head, tail;
+static uint8_t rx_buf[256];
+
+void
+buf_put(uint8_t b)
+{
+	unsigned next = (head + 1) % sizeof(rx_buf);
+
+	if (next != tail) {
+		rx_buf[head] = b;
+		head = next;
+	}
+}
+
+int
+buf_get(void)
+{
+	int	ret = -1;
+
+	if (tail != head) {
+		ret = rx_buf[tail];
+		tail = (tail + 1) % sizeof(rx_buf);
+	}
+	return ret;
 }
 
 static void
@@ -184,7 +188,7 @@ do_jump(uint32_t stacktop, uint32_t entrypoint)
 	for (;;) ;
 }
 
-static void
+void
 jump_to_app()
 {
 	const uint32_t *app_base = (const uint32_t *)board_info.fw_base;
@@ -207,9 +211,8 @@ jump_to_app()
 	led_off(LED_ACTIVITY);
 	led_on(LED_BOOTLOADER);
 
-	/* disable USB and kill interrupts */
-	cdc_disconnect();
-	nvic_disable_irq(NVIC_OTG_FS_IRQ);
+	/* the interface */
+	cfini();
 
 	/* switch exception handlers to the application */
 	SCB_VTOR = board_info.fw_base;
@@ -234,50 +237,12 @@ sys_tick_handler(void)
 }
 
 void
-otg_fs_isr(void)
-{
-	usbd_poll();
-}
-
-void
 delay(unsigned msec)
 {
 	timer[TIMER_DELAY] = msec;
 
 	while(timer[TIMER_DELAY] > 0)
 		;
-}
-
-static int
-cin(unsigned timeout)
-{
-	uint8_t	c;
-	int ret = -1;
-
-	timer[TIMER_CIN] = timeout;
-
-	do {
-		/* try to fetch a byte */
-		if (cdc_read(&c, 1) > 0) {
-			ret = c;
-			break;
-		}
-
-	} while (timer[TIMER_CIN] > 0);
-
-	return ret;
-}
-
-static void
-cout(uint8_t *buf, unsigned len)
-{
-	unsigned sent;
-
-	while (len) {
-		sent = cdc_write(buf, len);
-		len -= sent;
-		buf += sent;
-	}
 }
 
 static void
@@ -293,7 +258,7 @@ sync_response(void)
 
 volatile bool badcmd = false;
 
-static void
+void
 bootloader(unsigned timeout)
 {
 	int             c;
@@ -421,67 +386,5 @@ cmd_bad:
 		badcmd = true;
 		while(true);
 		continue;
-	}
-}
-
-int
-main(void)
-{
-    /* Enable FPU */
-#ifndef SCB_CPACR
-#define SCB_CPACR (*((uint32_t*) (((0xE000E000UL) + 0x0D00UL) + 0x088)))
-#endif
-
-    SCB_CPACR |= ((3UL << 10*2) | (3UL << 11*2)); /* set CP10 Full Access and set CP11 Full Access */
-
-	unsigned timeout;
-
-	/* enable GPIO9 with a pulldown to sniff VBUS */
-	rcc_peripheral_enable_clock(&RCC_AHB1ENR, RCC_AHB1ENR_IOPAEN);
-	gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_PULLDOWN, GPIO9);
-
-	/* set up GPIOs for LEDs */
-	rcc_peripheral_enable_clock(&RCC_AHB1ENR, LED_GPIOCLOCK);
-	gpio_mode_setup(LED_GPIOPORT, GPIO_MODE_OUTPUT, 0, LED_ACTIVITY | LED_BOOTLOADER);
-	gpio_set_output_options(LED_GPIOPORT, GPIO_OTYPE_OD, GPIO_OSPEED_2MHZ, LED_ACTIVITY | LED_BOOTLOADER);
-	led_off(LED_ACTIVITY | LED_BOOTLOADER);
-
-	/* XXX we want a delay here to let the input settle */
-	if (gpio_get(GPIOA, GPIO9) != 0) {
-		/* USB is connected; first time in the bootloader we will exit after the timeout */
-		timeout = BOOTLOADER_DELAY;
-	} else {
-		/* USB is not connected; try to boot immediately */
-		jump_to_app();
-
-		/* if we returned, there is no app; go to the bootloader and stay there */
-		timeout = 0;
-	}
-
-	/* XXX we could look at the backup SRAM to check for stay-in-bootloader instructions */
-
-	/* configure the clock for bootloader activity */
-	rcc_clock_setup_hse_3v3(&clock_setup);
-
-	/* start the timer system */
-	systick_set_clocksource(STK_CTRL_CLKSOURCE_AHB);
-	systick_set_reload(168000);	/* 1ms tick, magic number */
-	systick_interrupt_enable();
-	systick_counter_enable();
-
-	/* setup for USB CDC */
-	cdc_init();
-	nvic_enable_irq(NVIC_OTG_FS_IRQ);
-
-	while (1)
-	{
-		/* run the bootloader, possibly coming back after the timeout */
-		bootloader(timeout);
-
-		/* look to see if we can boot the app */
-		jump_to_app();
-
-		/* boot failed; stay in the bootloader forever next time */
-		timeout = 0;
 	}
 }

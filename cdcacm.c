@@ -20,9 +20,12 @@
 #include <stdlib.h>
 #include <libopencm3/stm32/f4/rcc.h>
 #include <libopencm3/stm32/f4/gpio.h>
+#include <libopencm3/stm32/f4/flash.h>
+#include <libopencm3/stm32/nvic.h>
 #include <libopencm3/usb/usbd.h>
 #include <libopencm3/usb/cdc.h>
-#include <libopencm3/stm32/f4/flash.h>
+
+#include "bl.h"
 
 static const struct usb_device_descriptor dev = {
 	.bLength = USB_DT_DEVICE_SIZE,
@@ -165,30 +168,6 @@ static const char *usb_strings[] = {
 	"DEMO",
 };
 
-static unsigned head, tail;
-static uint8_t rx_buf[256];
-
-static void buf_put(uint8_t b)
-{
-	unsigned next = (head + 1) % sizeof(rx_buf);
-
-	if (next != tail) {
-		rx_buf[head] = b;
-		head = next;
-	}
-}
-
-static int buf_get(void)
-{
-	int	ret = -1;
-
-	if (tail != head) {
-		ret = rx_buf[tail];
-		tail = (tail + 1) % sizeof(rx_buf);
-	}
-	return ret;
-}
-
 static int cdcacm_control_request(struct usb_setup_data *req, u8 **buf,
 		u16 *len, void (**complete)(struct usb_setup_data *req))
 {
@@ -257,36 +236,52 @@ void cdc_init(void)
 	usbd_register_set_config_callback(cdcacm_set_config);
 }
 
-void cdc_disconnect(void)
+static void cdc_disconnect(void)
 {
 	usbd_disconnect(true);
 }
 
-void cdc_reconnect(void)
+void
+otg_fs_isr(void)
 {
-	usbd_disconnect(false);
+	usbd_poll();
 }
 
-unsigned cdc_read(uint8_t *buf, unsigned count)
+void
+cinit(void)
 {
-	int ret = 0, c;
+	cdc_init();
+	nvic_enable_irq(NVIC_OTG_FS_IRQ);
+}
 
-	while (count) {
+void
+cfini()
+{
+	cdc_disconnect();
+	nvic_disable_irq(NVIC_OTG_FS_IRQ);
+}
+
+int
+cin(unsigned timeout)
+{
+	int c = -1;
+
+	/* start the timeout */
+	timer[TIMER_CIN] = timeout;
+
+	do {
 		c = buf_get();
-		if (c < 0)
+		if (c >= 0)
 			break;
-		*buf++ = c;
-		ret++;
-		count--;
-	}
 
-	return ret;
+	} while (timer[TIMER_CIN] > 0);
+
+	return c;
 }
 
-unsigned cdc_write(uint8_t *buf, unsigned count)
+void
+cout(uint8_t *buf, unsigned count)
 {
-	unsigned	ret = 0;
-
 	while (count) {
 		unsigned len = (count > 64) ? 64 : count;
 		unsigned sent;
@@ -295,10 +290,9 @@ unsigned cdc_write(uint8_t *buf, unsigned count)
 
 		count -= sent;
 		buf += sent;
-		ret += sent;
 
+		/* this is actually a fatal error */
 		if (sent < len)
 			break;
 	}
-	return ret;
 }
