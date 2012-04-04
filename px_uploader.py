@@ -120,7 +120,9 @@ class uploader(object):
 					self.port = serial.Serial(item, 115200, timeout=10)
 					port_exists = 1
 					port_found = item
-				except serial.serialutil.SerialException:
+					break
+					
+ 				except serial.serialutil.SerialException:
 					port_exists = 0
 			# Write out progress indicator
 			sys.stdout.write(".")
