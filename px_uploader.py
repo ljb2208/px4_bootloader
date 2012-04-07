@@ -101,10 +101,12 @@ class uploader(object):
 	PROG_MULTI_MAX	= 60		# protocol max is 255, must be multiple of 4
 	READ_MULTI_MAX	= 60		# protocol max is 255, something overflows with >= 64
 
-	def __init__(self, portname):
+	def __init__(self, portname, baudrate):
 		print "Uploader ready. Waiting for USB device",
 		print portname,
-		print "to appear.."
+		print "at",
+		print baudrate,
+		print "baud to appear.."
 		
 		portnames = portname.split(",");
 		
@@ -117,7 +119,9 @@ class uploader(object):
 			waittime += waittick
 			for item in portnames:
 				try:
-					self.port = serial.Serial(item, 115200, timeout=10)
+					#print "trying port:",
+					#print item
+					self.port = serial.Serial(item, baudrate, timeout=10)
 					port_exists = 1
 					port_found = item
 					break
@@ -251,6 +255,7 @@ class uploader(object):
 # Parse commandline arguments
 parser = argparse.ArgumentParser(description="Firmware uploader for the PX autopilot system.")
 parser.add_argument('--port', action="store", required=True, help="Serial port to which the FMU is attached.")
+parser.add_argument('--baud', action="store", required=True, help="Baud rate of the serial port (default is 115200)")
 parser.add_argument('firmware', action="store", help="Firmware file to be uploaded")
 args = parser.parse_args()
 
@@ -259,7 +264,7 @@ fw = firmware(args.firmware)
 print("Loaded firmware for %x,%x" % (fw.property('board_id'), fw.property('board_revision')))
 
 # Connect to the device and identify it
-up = uploader(args.port)
+up = uploader(args.port, args.baud)
 up.check()
 up.identify()
 print("connected to board %x,%x " % (up.board_type, up.board_rev))
