@@ -272,6 +272,7 @@ class uploader(object):
 		print("done,"),
 		print("booting app.")
 		self.__reboot()
+		self.port.close()
 	
 
 # Parse commandline arguments
