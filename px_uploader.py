@@ -122,8 +122,13 @@ class uploader(object):
 					#print "trying port:",
 					#print item
 					self.port = serial.Serial(item, baudrate, timeout=10)
-					port_exists = 1
-					port_found = item
+					# Opened port, trying to get sync char
+					if (self.identify()):
+						port_exists = 1
+						port_found = item
+						self.port.flushInput()
+					else:
+						print "Tried" + portname + ", but no PX4 device detected."
 					break
 					
  				except serial.serialutil.SerialException:
@@ -167,6 +172,17 @@ class uploader(object):
 		self.__send(uploader.GET_SYNC 
 				+ uploader.EOC)
 		self.__getSync()
+		
+	def __trySync(self):
+		c = self.__recv()
+		if (c != self.INSYNC):
+			print("unexpected 0x%x instead of INSYNC" % ord(c))
+			return False;
+		c = self.__recv()
+		if (c != self.OK):
+			print("unexpected 0x%x instead of OK" % ord(c))
+			return False
+		return True
 
 	# send the CHIP_ERASE command and wait for the bootloader to become ready
 	def __erase(self):
@@ -230,25 +246,31 @@ class uploader(object):
 		self.__send(uploader.GET_DEVICE
 				+ uploader.EOC)
 		binboardinfo = self.__recv(32)
-		self.__getSync()
+		if (not self.__trySync()):
+			print("protocol sync failed, not a PX4 board")
+			return False
 		boardinfo = struct.unpack_from('<IBBBBIIIIII', binboardinfo)
 		if (boardinfo[0] != 0xbdbdbdbd):
-			raise RuntimeError("board ID structure magic mismatch")
+			print("board ID structure magic mismatch")
+			return False
 
 		self.board_type = boardinfo[1]
 		self.board_rev = boardinfo[2]
 		self.bl_rev = boardinfo[3]
 		self.hw_type = boardinfo[4]
+		return True
 
 	# upload the firmware
 	def upload(self, fw, erase_params = False):
+		print("starting to flash:")
 		print("erase...")
 		self.__erase()
 		print("program...")
 		self.__program(fw)
 		print("verify...")
 		self.__verify(fw)
-		print("done.")
+		print("done,"),
+		print("booting app.")
 		self.__reboot()
 	
 
