@@ -127,8 +127,8 @@ class uploader(object):
 						port_exists = 1
 						port_found = item
 						self.port.flushInput()
-					else:
-						print "Tried" + portname + ", but no PX4 device detected."
+					#else:
+					#	print "Tried" + portname + ", but no PX4 device detected."
 					break
 					
  				except serial.serialutil.SerialException:
@@ -176,11 +176,11 @@ class uploader(object):
 	def __trySync(self):
 		c = self.__recv()
 		if (c != self.INSYNC):
-			print("unexpected 0x%x instead of INSYNC" % ord(c))
+			#print("unexpected 0x%x instead of INSYNC" % ord(c))
 			return False;
 		c = self.__recv()
 		if (c != self.OK):
-			print("unexpected 0x%x instead of OK" % ord(c))
+			#print("unexpected 0x%x instead of OK" % ord(c))
 			return False
 		return True
 
