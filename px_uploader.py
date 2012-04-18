@@ -139,6 +139,7 @@ class uploader(object):
 		if (not port_exists):
 			print "\nTimeout: PX4 device not found. Is the USB cable connected?"
 			print "\t tried port at " + portname
+			self.port.close()
 			sys.exit(1)
 		else:
 			print "\nFound port: ",
@@ -151,6 +152,7 @@ class uploader(object):
 	def __recv(self, count = 1):
 		c = self.port.read(count)
 		if (len(c) < 1):
+			self.port.close()
 			raise RuntimeError("timeout waiting for data")
 #		print("recv " + binascii.hexlify(c))
 		return c
@@ -158,9 +160,11 @@ class uploader(object):
 	def __getSync(self):
 		c = self.__recv()
 		if (c != self.INSYNC):
+			self.port.close()
 			raise RuntimeError("unexpected 0x%x instead of INSYNC" % ord(c))
 		c = self.__recv()
 		if (c != self.OK):
+			self.port.close()
 			raise RuntimeError("unexpected 0x%x instead of OK" % ord(c))
 
 	# attempt to get back into sync with the bootloader
@@ -235,6 +239,7 @@ class uploader(object):
 		groups = self.__split_len(code, uploader.READ_MULTI_MAX)
 		for bytes in groups:
 			if (not self.__verify_multi(bytes)):
+				self.port.close()
 				raise RuntimeError("Verification failed")
 
 	# verify whether the bootloader is present and responding
