@@ -5,7 +5,7 @@
 #
 # Paths to common dependencies
 #
-export LIBOPENCM3	?= ../../libopencm3/libopencm3
+export LIBOPENCM3	?= ../libopencm3
 
 #
 # Tools

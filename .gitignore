@@ -3,8 +3,11 @@ bl.o
 cdcacm.d
 cdcacm.o
 px4fmu_bl.elf
+px4io_bl.elf
+px4flow_bl.elf
 .cproject
 .project
 .DS_Store
+.settings
 *~
 px4discovery_bl.elf

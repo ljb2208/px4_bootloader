@@ -22,7 +22,7 @@ ifeq ($(INTERFACE),USART)
 SRCS		+= usart.c
 endif
 
-FLAGS		+= -mthumb -mcpu=cortex-m4 \
+FLAGS		+= -mthumb -mcpu=cortex-m4 -mfloat-abi=hard -mfpu=fpv4-sp-d16 \
 		   -DSTM32F4 \
 		   -DAPP_LOAD_ADDRESS=0x08004000 \
 		   -DAPP_SIZE_MAX=0xfc000 \
