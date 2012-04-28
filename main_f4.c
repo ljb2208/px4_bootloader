@@ -206,7 +206,20 @@ main(void)
 #ifdef INTERFACE_USB
 	/* check for USB connection - if present, we will wait in the bootloader for a while */
 	if (gpio_get(GPIOA, GPIO9) != 0)
+	{
 		timeout = BOOTLOADER_DELAY;
+	}
+	else
+	{
+		/* XXX this needs a proper fix, state machine below is redundant
+		 * code as is works correctly and fine, but is ugly
+		 */
+		/* look to see if we can boot the app */
+		jump_to_app();
+
+		/* boot failed; stay in the bootloader forever next time */
+		timeout = 0;
+	}
 #endif
 #ifdef INTERFACE_USART
 	/* XXX sniff for a USART connection to decide whether to wait in the bootloader */
