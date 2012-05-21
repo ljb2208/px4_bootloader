@@ -1,16 +1,26 @@
 /*
  * Common bootloader logic.
+ *
+ * Aside from the header includes below, this file should have no board-specific logic.
  */
 
 #include <inttypes.h>
 #include <stdlib.h>
 
-#ifdef STM32F4
+#if   defined(STM32F4)
 # include <libopencm3/stm32/f4/rcc.h>
 # include <libopencm3/stm32/f4/gpio.h>
 # include <libopencm3/stm32/f4/flash.h>
 # include <libopencm3/stm32/f4/scb.h>
+#elif defined(STM32F1)
+# include <libopencm3/stm32/f1/rcc.h>
+# include <libopencm3/stm32/f1/gpio.h>
+# include <libopencm3/stm32/f1/flash.h>
+# include <libopencm3/stm32/f1/scb.h>
+#else
+# error Unsupported chip
 #endif
+
 #include <libopencm3/stm32/systick.h>
 
 #include "bl.h"
@@ -278,8 +288,7 @@ bootloader(unsigned timeout)
 
 		case PROTO_CHIP_ERASE:          // erase the program area + read for programming
 			flash_unlock();
-			for (i = 0; i < flash_nsectors; i++)
-				flash_erase_sector(flash_sectors[i], FLASH_PROGRAM_X32);
+			flash_func_erase_all();
 			address = board_info.fw_base;
 			break;
 
@@ -288,7 +297,7 @@ bootloader(unsigned timeout)
 
 			// program the deferred first word
 			if (first_word != 0xffffffff)
-				flash_program_word(address, first_word, FLASH_PROGRAM_X32);
+				flash_func_write_word(address, first_word);
 
 			flash_lock();
 			break;
@@ -309,7 +318,7 @@ bootloader(unsigned timeout)
 				flash_buffer.w[0] = 0xffffffff;
 			}
 			for (i = 0; i < (count / 4); i++) {
-				flash_program_word(address, flash_buffer.w[i], FLASH_PROGRAM_X32);
+				flash_func_write_word(address, flash_buffer.w[i]);
 				address += 4;
 			}
 			break;

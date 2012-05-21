@@ -12,10 +12,8 @@
 
 #include "bl.h"
 
-/* standard clocking for all F4 boards */
-
 /* flash parameters that we should not really know */
-uint32_t flash_sectors[] = {
+static uint32_t flash_sectors[] = {
 	FLASH_SECTOR_1,
 	FLASH_SECTOR_2,
 	FLASH_SECTOR_3,
@@ -28,7 +26,7 @@ uint32_t flash_sectors[] = {
 	FLASH_SECTOR_10,
 	FLASH_SECTOR_11,
 };
-unsigned flash_nsectors = sizeof(flash_sectors) / sizeof(flash_sectors[0]);
+static unsigned flash_nsectors = sizeof(flash_sectors) / sizeof(flash_sectors[0]);
 
 #ifdef BOARD_FMU
 # define OSC_FREQ			24
@@ -86,7 +84,8 @@ unsigned flash_nsectors = sizeof(flash_sectors) / sizeof(flash_sectors[0]);
 # define BOARD_USART_CLOCK_BIT		RCC_APB1ENR_USART2EN
 # define BOARD_PIN_TX			GPIO2
 # define BOARD_PIN_RX			GPIO3
-# define BOARD_CLOCK_USART_PINS		RCC_AHB1ENR_IOPAEN
+# define BOARD_USART_PIN_CLOCK_REGISTER	RCC_APB2ENR
+# define BOARD_USART_PIN_CLOCK_BIT	RCC_AHB1ENR_IOPAEN
 # define BOARD_FUNC_USART		GPIO_AF7
 #endif
 
@@ -95,6 +94,8 @@ unsigned flash_nsectors = sizeof(flash_sectors) / sizeof(flash_sectors[0]);
 #else
 # define BOARD_INTERFACE_CONFIG		NULL
 #endif
+
+/* standard clocking for all F4 boards */
 
 static const clock_scale_t clock_setup =
 {
@@ -133,13 +134,29 @@ board_init(void)
 
 #ifdef INTERFACE_USART
 	/* configure usart pins */
-	rcc_peripheral_enable_clock(&RCC_AHB1ENR, BOARD_CLOCK_USART_PINS);
+	rcc_peripheral_enable_clock(&BOARD_USART_PIN_CLOCK_REGISTER, BOARD_USART_PIN_CLOCK_BIT);
 	gpio_mode_setup(BOARD_PORT_USART, GPIO_MODE_AF, GPIO_PUPD_NONE, BOARD_PIN_TX | BOARD_PIN_RX);
 	gpio_set_af(BOARD_PORT_USART, BOARD_FUNC_USART, BOARD_PIN_TX | BOARD_PIN_RX);
 
 	/* configure USART clock */
 	rcc_peripheral_enable_clock(&BOARD_USART_CLOCK_REGISTER, BOARD_USART_CLOCK_BIT);
 #endif
+}
+
+void
+flash_func_erase_all(void)
+{
+	unsigned i;
+
+	/* erase all but the sector containing the bootloader */
+	for (i = 0; i < flash_nsectors; i++)
+		flash_erase_sector(flash_sectors[i], FLASH_PROGRAM_X32);
+}
+
+void
+flash_func_write_word(unsigned address, uint32_t word)
+{
+	flash_program_word(address, word, FLASH_PROGRAM_X32);
 }
 
 void

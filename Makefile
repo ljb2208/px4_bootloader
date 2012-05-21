@@ -37,6 +37,14 @@ all: $(TARGETS)
 clean:
 	rm -f *.elf
 
+#
+# Specific bootloader targets.
+#
+# Pick a Makefile from Makefile.f1, Makefile.f4
+# Pick an interface supported by the Makefile (USB, UART, I2C)
+# Specify the board type.
+#
+
 px4fmu_bl:
 	make -f Makefile.f4 TARGET=fmu INTERFACE=USB BOARD=FMU
 
@@ -47,4 +55,4 @@ px4flow_bl:
 	make -f Makefile.f4 TARGET=flow INTERFACE=USB BOARD=FLOW
 
 px4io_bl:
-	make -f Makefile.f1 TARGET=io INTERFACE=I2C BOARD=IO
+	make -f Makefile.f1 TARGET=io INTERFACE=USART BOARD=IO

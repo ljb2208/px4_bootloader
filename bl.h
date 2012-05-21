@@ -21,9 +21,9 @@ extern volatile unsigned timer[NTIMERS];	/* each timer decrements every millisec
 extern void buf_put(uint8_t b);
 extern int buf_get(void);
 
-/* flash geometry from main_*.c */
-extern uint32_t flash_sectors[];
-extern unsigned flash_nsectors;
+/* flash helpers from main_*.c */
+extern void flash_func_erase_all(void);
+extern void flash_func_write_word(unsigned address, uint32_t word);
 
 /* board functions */
 #define LED_ACTIVITY	1
