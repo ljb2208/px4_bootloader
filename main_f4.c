@@ -8,7 +8,7 @@
 #include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/f4/flash.h>
 #include <libopencm3/stm32/usart.h>
-
+#include <libopencm3/stm32/systick.h>
 
 #include "bl.h"
 
@@ -29,6 +29,8 @@ static uint32_t flash_sectors[] = {
 static unsigned flash_nsectors = sizeof(flash_sectors) / sizeof(flash_sectors[0]);
 
 #ifdef BOARD_FMU
+# define BOARD_TYPE			5
+
 # define OSC_FREQ			24
 
 # define BOARD_PIN_LED_ACTIVITY		GPIO15
@@ -49,6 +51,8 @@ static unsigned flash_nsectors = sizeof(flash_sectors) / sizeof(flash_sectors[0]
 #endif
 
 #ifdef BOARD_FLOW
+# define BOARD_TYPE			6
+
 # define OSC_FREQ			24
 
 # define BOARD_PIN_LED_ACTIVITY		GPIO3
@@ -69,6 +73,8 @@ static unsigned flash_nsectors = sizeof(flash_sectors) / sizeof(flash_sectors[0]
 #endif
 
 #ifdef BOARD_DISCOVERY
+# define BOARD_TYPE			99
+
 # define OSC_FREQ			8
 
 # define BOARD_PIN_LED_ACTIVITY		GPIO12
@@ -95,8 +101,19 @@ static unsigned flash_nsectors = sizeof(flash_sectors) / sizeof(flash_sectors[0]
 # define BOARD_INTERFACE_CONFIG		NULL
 #endif
 
-/* standard clocking for all F4 boards */
+/* board definition */
+struct boardinfo board_info = {
+	.board_type	= BOARD_TYPE,
+	.board_rev	= 0,
+	.fw_base	= APP_LOAD_ADDRESS,
+	.fw_size	= APP_SIZE_MAX,
 
+	.systick_mhz	= 168,
+};
+
+static void board_init(void);
+
+/* standard clocking for all F4 boards */
 static const clock_scale_t clock_setup =
 {
 	.pllm = OSC_FREQ,
@@ -112,7 +129,7 @@ static const clock_scale_t clock_setup =
 	.apb2_frequency = 84000000,
 };
 
-void
+static void
 board_init(void)
 {
 
@@ -141,6 +158,7 @@ board_init(void)
 	/* configure USART clock */
 	rcc_peripheral_enable_clock(&BOARD_USART_CLOCK_REGISTER, BOARD_USART_CLOCK_BIT);
 #endif
+
 }
 
 void
@@ -226,17 +244,6 @@ main(void)
 	{
 		timeout = BOOTLOADER_DELAY;
 	}
-	else
-	{
-		/* XXX this needs a proper fix, state machine below is redundant
-		 * code as is works correctly and fine, but is ugly
-		 */
-		/* look to see if we can boot the app */
-		jump_to_app();
-
-		/* boot failed; stay in the bootloader forever next time */
-		timeout = 0;
-	}
 #endif
 #ifdef INTERFACE_USART
 	/* XXX sniff for a USART connection to decide whether to wait in the bootloader */
@@ -244,7 +251,7 @@ main(void)
 #endif
 
 	/* XXX we could look at the backup SRAM to check for stay-in-bootloader instructions */
-#if 0
+
 	/* if we aren't expected to wait in the bootloader, try to boot immediately */
 	if (timeout == 0) {
 		/* try to boot immediately */
@@ -253,7 +260,7 @@ main(void)
 		/* if we returned, there is no app; go to the bootloader and stay there */
 		timeout = 0;
 	}
-#endif
+
 	/* configure the clock for bootloader activity */
 	rcc_clock_setup_hse_3v3(&clock_setup);
 #if 0

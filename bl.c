@@ -64,41 +64,26 @@
 #define PROTO_PROG_MULTI	0x27    // write bytes at address + increment	<command_data>: <count><databytes>
 #define PROTO_READ_MULTI	0x28    // read bytes at address + increment	<command_data>: <count>,  <reply_data>: <databytes>
 
-#define PROTO_REBOOT		0x30    // reboot the board & start the app
+#define PROTO_BOOT		0x30    // boot the application
 
 #define PROTO_DEBUG		0x31    // emit debug information - format not defined
 
 #define PROTO_PROG_MULTI_MAX    64	// maximum PROG_MULTI size
 #define PROTO_READ_MULTI_MAX    255	// size of the size field
 
-/* XXX interim - something that looks like a PiOS board info blob */
-/* XXX should come from the build environment */
-struct _board_info {
-  uint32_t magic;
-  uint8_t  board_type;
-  uint8_t  board_rev;
-  uint8_t  bl_rev;
-  uint8_t  hw_type;
-  uint32_t fw_base;
-  uint32_t fw_size;
-  uint32_t desc_base;
-  uint32_t desc_size;
-  uint32_t ee_base;
-  uint32_t ee_size;
-} __attribute__((packed)) board_info = {
-	.magic		= 0xBDBDBDBD,
-	.board_type	= 0x5,
-	.board_rev	= 0,
-	.bl_rev		= 1,
-	.hw_type	= 0,
-	.fw_base	= APP_LOAD_ADDRESS,
-	.fw_size	= APP_SIZE_MAX,
-	.desc_base	= 0,
-	.desc_size	= 0,	
-};
+/* argument values for PROTO_GET_DEVICE */
+#define PROTO_DEVICE_BL_REV	1
+#define PROTO_DEVICE_BOARD_ID	2
+#define PROTO_DEVICE_BOARD_REV	3
+#define PROTO_DEVICE_FW_SIZE	4
+
+
+static const uint32_t	bl_proto_rev = 2;	// value returned by PROTO_DEVICE_BL_REV
 
 static unsigned head, tail;
 static uint8_t rx_buf[256];
+
+void sys_tick_handler(void);
 
 void
 buf_put(uint8_t b)
@@ -226,7 +211,7 @@ void
 bootloader(unsigned timeout)
 {
 	int             c;
-	uint8_t         count = 0;
+	int		arg = 0;
 	unsigned	i;
 	unsigned	fw_end = board_info.fw_base + board_info.fw_size;
 	unsigned	address = fw_end;	/* force erase before upload will work */
@@ -235,17 +220,12 @@ bootloader(unsigned timeout)
 		uint8_t		c[256];
 		uint32_t	w[64];
 	} flash_buffer;
-	static bool	timer_init_done;
 
-	if (!timer_init_done) {		
-		/* start the timer system */
-		systick_set_clocksource(STK_CTRL_CLKSOURCE_AHB);
-		systick_set_reload(168000);	/* 1ms tick, magic number */
-		systick_interrupt_enable();
-		systick_counter_enable();
-
-		timer_init_done = true;
-	}
+	/* (re)start the timer system */
+	systick_set_clocksource(STK_CTRL_CLKSOURCE_AHB);
+	systick_set_reload(board_info.systick_mhz * 1000);	/* 1ms tick, magic number */
+	systick_interrupt_enable();
+	systick_counter_enable();
 
 	/* if we are working with a timeout, start it running */
 	if (timeout)
@@ -265,15 +245,33 @@ bootloader(unsigned timeout)
 		} while (c < 0);
 		led_on(LED_ACTIVITY);
 
-		// common tests for EOC
+		// common argument handling for commands
 		switch (c) {
 		case PROTO_GET_SYNC:
-		case PROTO_GET_DEVICE:
 		case PROTO_CHIP_ERASE:
 		case PROTO_CHIP_VERIFY:
 		case PROTO_DEBUG:
+			/* expect EOC */
 			if (cin_wait(100) != PROTO_EOC)
 				goto cmd_bad;
+			break;
+
+		case PROTO_PROG_MULTI:
+			/* expect count */
+			arg = cin_wait(100);
+			if (arg < 0)
+				goto cmd_bad;
+			break;
+
+		case PROTO_GET_DEVICE:
+		case PROTO_READ_MULTI:
+			/* expect arg/count then EOC */
+			arg = cin_wait(100);
+			if (arg < 0)
+				goto cmd_bad;
+			if (cin_wait(100) != PROTO_EOC)
+				goto cmd_bad;
+			break;
 		}
 
 		// handle the command byte
@@ -283,7 +281,26 @@ bootloader(unsigned timeout)
 			break;
 
 		case PROTO_GET_DEVICE:		// report board info
-			cout((uint8_t *)&board_info, sizeof(board_info));
+
+			switch (arg) {
+			case PROTO_DEVICE_BL_REV:
+				cout((uint8_t *)&bl_proto_rev, sizeof(bl_proto_rev));
+				break;
+
+			case PROTO_DEVICE_BOARD_ID:
+				cout((uint8_t *)&board_info.board_type, sizeof(board_info.board_type));
+				break;
+
+			case PROTO_DEVICE_BOARD_REV:
+				cout((uint8_t *)&board_info.board_rev, sizeof(board_info.board_rev));
+				break;
+
+			case PROTO_DEVICE_FW_SIZE:
+				cout((uint8_t *)&board_info.fw_size, sizeof(board_info.fw_size));
+				break;
+			default:
+				goto cmd_bad;
+			}
 			break;
 
 		case PROTO_CHIP_ERASE:          // erase the program area + read for programming
@@ -303,13 +320,18 @@ bootloader(unsigned timeout)
 			break;
 
 		case PROTO_PROG_MULTI:		// program bytes
-			count = cin_wait(100);
-			if (count % 4)
+			if (arg % 4)
 				goto cmd_bad;
-			if ((address + count) > fw_end)
+			if ((address + arg) > fw_end)
 				goto cmd_bad;
-			for (i = 0; i < count; i++)
-				flash_buffer.c[i] = cin_wait(100);
+			if (arg > sizeof(flash_buffer.c))
+				goto cmd_bad;
+			for (i = 0; i < arg; i++) {
+				c = cin_wait(100);
+				if (c < 0)
+					goto cmd_bad;
+				flash_buffer.c[i] = c;
+			}
 			if (cin_wait(100) != PROTO_EOC)
 				goto cmd_bad;
 			if (address == board_info.fw_base) {
@@ -317,23 +339,20 @@ bootloader(unsigned timeout)
 				first_word = flash_buffer.w[0];
 				flash_buffer.w[0] = 0xffffffff;
 			}
-			for (i = 0; i < (count / 4); i++) {
+			for (i = 0; i < (arg / 4); i++) {
 				flash_func_write_word(address, flash_buffer.w[i]);
 				address += 4;
 			}
 			break;
 
 		case PROTO_READ_MULTI:			// readback bytes
-			count = cin_wait(100);
-			if (cin_wait(100) != PROTO_EOC)
+			if ((address + arg) > fw_end)
 				goto cmd_bad;
-			if ((address + count) > fw_end)
-				goto cmd_bad;
-			cout((uint8_t *)address, count);
-			address += count;
+			cout((uint8_t *)address, arg);
+			address += arg;
 			break;
 
-		case PROTO_REBOOT:
+		case PROTO_BOOT:
 			// just jump to the app
 			return;
 
