@@ -99,6 +99,8 @@ if args.git_identity != None:
 	p.close()
 if args.image != None:
 	f = open(args.image, "rb")
-	desc['image'] = base64.b64encode(zlib.compress(f.read(),9))
+	bytes = f.read()
+	desc['image-size'] = len(bytes)
+	desc['image'] = base64.b64encode(zlib.compress(bytes,9))
 
 print json.dumps(desc, indent=4)
