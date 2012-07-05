@@ -16,6 +16,7 @@ export CC	 	 = arm-none-eabi-gcc
 # Common configuration
 #
 export FLAGS		 = -Os \
+			   -g \
 			   -Wall \
 			   -fno-builtin \
 			   -I$(LIBOPENCM3)/include \
@@ -29,7 +30,8 @@ export COMMON_SRCS	 = bl.c
 #
 # Bootloaders to build
 #
-TARGETS			 = px4fmu_bl px4flow_bl stm32f4discovery_bl
+TARGETS			 = px4fmu_bl px4flow_bl stm32f4discovery_bl px4io_bl
+
 # px4io_bl px4flow_bl
 
 all: $(TARGETS)
@@ -54,5 +56,8 @@ stm32f4discovery_bl:
 px4flow_bl:
 	make -f Makefile.f4 TARGET=flow INTERFACE=USB BOARD=FLOW
 
+# PX4IO waits in the bootloader for FMU to check the firmware version before startup.
+# Delay here is a bit over 48 days.  FMU should boot faster than that.
+#
 px4io_bl:
 	make -f Makefile.f1 TARGET=io INTERFACE=USART BOARD=IO

@@ -98,52 +98,22 @@ class uploader(object):
 	READ_MULTI	= chr(0x28)
 	REBOOT		= chr(0x30)
 	
+	INFO_BL_REV	= chr(1)	# bootloader protocol revision
+	BL_REV		= 2		# supported bootloader protocol 
+	INFO_BOARD_ID	= chr(2)	# board type
+	INFO_BOARD_REV	= chr(3)	# board revision
+	INFO_FLASH_SIZE	= chr(4)	# max firmware size in bytes
+
 	PROG_MULTI_MAX	= 60		# protocol max is 255, must be multiple of 4
 	READ_MULTI_MAX	= 60		# protocol max is 255, something overflows with >= 64
 
 	def __init__(self, portname, baudrate):
-		print "Uploader ready. Waiting for USB device",
-		print portname,
-		print "at",
-		print baudrate,
-		print "baud to appear.."
-		
-		portnames = portname.split(",");
-		
-		waittick	= 0.1		# Wait 0.1 seconds per wait attempt
-		maxwait		= 12		# Wait max. 15 seconds
-		waittime    = 0			# Time waited so far, initially zero
-		port_exists = 0
-		while ((not port_exists) and (waittime < maxwait)):
-			time.sleep(waittick)
-			waittime += waittick
-			for item in portnames:
-				try:
-					#print "trying port:",
-					#print item
-					self.port = serial.Serial(item, baudrate, timeout=10)
-					# Opened port, trying to get sync char
-					if (self.identify()):
-						port_exists = 1
-						port_found = item
-						self.port.flushInput()
-					#else:
-					#	print "Tried" + portname + ", but no PX4 device detected."
-					break
-					
- 				except serial.serialutil.SerialException:
-					port_exists = 0
-			# Write out progress indicator
-			sys.stdout.write(".")
-			sys.stdout.flush()
-		if (not port_exists):
-			print "\nTimeout: PX4 device not found. Is the USB cable connected?"
-			print "\t tried port at " + portname
+		# open the port
+		self.port = serial.Serial(portname, baudrate, timeout=10)
+
+	def close(self):
+		if self.port is not None:
 			self.port.close()
-			sys.exit(1)
-		else:
-			print "\nFound port: ",
-			print port_found
 
 	def __send(self, c):
 #		print("send " + binascii.hexlify(c))
@@ -152,7 +122,6 @@ class uploader(object):
 	def __recv(self, count = 1):
 		c = self.port.read(count)
 		if (len(c) < 1):
-			self.port.close()
 			raise RuntimeError("timeout waiting for data")
 #		print("recv " + binascii.hexlify(c))
 		return c
@@ -160,11 +129,9 @@ class uploader(object):
 	def __getSync(self):
 		c = self.__recv()
 		if (c != self.INSYNC):
-			self.port.close()
 			raise RuntimeError("unexpected 0x%x instead of INSYNC" % ord(c))
 		c = self.__recv()
 		if (c != self.OK):
-			self.port.close()
 			raise RuntimeError("unexpected 0x%x instead of OK" % ord(c))
 
 	# attempt to get back into sync with the bootloader
@@ -187,6 +154,14 @@ class uploader(object):
 			#print("unexpected 0x%x instead of OK" % ord(c))
 			return False
 		return True
+
+	# send the GET_DEVICE command and wait for an info parameter
+	def __getInfo(self, param):
+		self.__send(uploader.GET_DEVICE + param + uploader.EOC)
+		raw = self.__recv(4)
+		self.__getSync()
+		value = struct.unpack_from('<I', raw)
+		return value[0]
 
 	# send the CHIP_ERASE command and wait for the bootloader to become ready
 	def __erase(self):
@@ -239,65 +214,93 @@ class uploader(object):
 		groups = self.__split_len(code, uploader.READ_MULTI_MAX)
 		for bytes in groups:
 			if (not self.__verify_multi(bytes)):
-				self.port.close()
 				raise RuntimeError("Verification failed")
 
-	# verify whether the bootloader is present and responding
-	def check(self):
+	# get basic data about the board
+	def identify(self):
+		# make sure we are in sync before starting
 		self.__sync()
 
-	# get the board's info structure
-	def identify(self):
-		self.__send(uploader.GET_DEVICE
-				+ uploader.EOC)
-		binboardinfo = self.__recv(32)
-		if (not self.__trySync()):
-			print("protocol sync failed, not a PX4 board")
-			return False
-		boardinfo = struct.unpack_from('<IBBBBIIIIII', binboardinfo)
-		if (boardinfo[0] != 0xbdbdbdbd):
-			print("board ID structure magic mismatch")
-			return False
+		# get the bootloader protocol ID first
+		bl_rev = self.__getInfo(uploader.INFO_BL_REV)
+		if bl_rev != uploader.BL_REV:
+			raise RuntimeError("Bootloader protocol mismatch")
 
-		self.board_type = boardinfo[1]
-		self.board_rev = boardinfo[2]
-		self.bl_rev = boardinfo[3]
-		self.hw_type = boardinfo[4]
-		return True
+		self.board_type = self.__getInfo(uploader.INFO_BOARD_ID)
+		self.board_rev = self.__getInfo(uploader.INFO_BOARD_REV)
+		self.fw_maxsize = self.__getInfo(uploader.INFO_FLASH_SIZE)
 
 	# upload the firmware
-	def upload(self, fw, erase_params = False):
-		print("starting to flash:")
+	def upload(self, fw):
+		# Make sure we are doing the right thing
+		if self.board_type != fw.property('board_id'):
+			raise RuntimeError("Firmware not suitable for this board")
+		if self.fw_maxsize < fw.property('image-size'):
+			raise RuntimeError("Firmware image is too large for this board")
+
 		print("erase...")
 		self.__erase()
+
 		print("program...")
 		self.__program(fw)
+
 		print("verify...")
 		self.__verify(fw)
-		print("done,"),
-		print("booting app.")
+
+		print("done, rebooting.")
 		self.__reboot()
 		self.port.close()
 	
 
 # Parse commandline arguments
 parser = argparse.ArgumentParser(description="Firmware uploader for the PX autopilot system.")
-parser.add_argument('--port', action="store", required=True, help="Serial port to which the FMU is attached.")
+parser.add_argument('--port', action="store", required=True, help="Serial port(s) to which the FMU may be attached")
 parser.add_argument('--baud', action="store", required=True, help="Baud rate of the serial port (default is 115200)")
 parser.add_argument('firmware', action="store", help="Firmware file to be uploaded")
 args = parser.parse_args()
 
 # Load the firmware file
 fw = firmware(args.firmware)
-print("Loaded firmware for %x,%x" % (fw.property('board_id'), fw.property('board_revision')))
+print("Loaded firmware for %x,%x, waiting for the bootloader..." % (fw.property('board_id'), fw.property('board_revision')))
 
-# Connect to the device and identify it
-up = uploader(args.port, args.baud)
-up.check()
-up.identify()
-print("connected to board %x,%x " % (up.board_type, up.board_rev))
+# Spin waiting for a device to show up
+while True:
+	for port in args.port.split(","):
 
-if up.board_type != fw.property('board_id'):
-	raise RuntimeError("Firmware not suitable for this board")
+		#print("Trying %s" % port)
 
-up.upload(fw)
+		# create an uploader attached to the port
+		try:
+			up = uploader(port, args.baud)
+		except:
+			# open failed, rate-limit our attempts
+			time.sleep(0.05)
+
+			# and loop to the next port
+			continue
+
+		# port is open, try talking to it
+		try:
+			# identify the bootloader
+			up.identify()
+			print("Found board %x,%x on %s" % (up.board_type, up.board_rev, port))
+
+		except:
+			# most probably a timeout talking to the port, no bootloader
+			continue
+
+		try:
+			# ok, we have a bootloader, try flashing it
+			up.upload(fw)
+
+		except RuntimeError as ex:
+
+			# print the error
+			print("ERROR: %s" % ex.args)
+
+		finally:
+			# always close the port
+			up.close()
+
+		# we could loop here if we wanted to wait for more boards...
+		sys.exit(0)

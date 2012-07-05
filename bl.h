@@ -4,9 +4,23 @@
 
 #pragma once
 
-/* bootloader functions */
+/***************************************************************************** 
+ * Generic bootloader functions.
+ */
+
+/* board info forwarded from board-specific code to booloader */
+struct boardinfo {
+	uint32_t	board_type;
+	uint32_t	board_rev;
+	uint32_t	fw_base;
+	uint32_t	fw_size;
+	uint32_t	systick_mhz;		/* systick input clock */
+
+} __attribute__((packed));
+
+extern struct boardinfo board_info;
+
 extern void jump_to_app(void);
-extern void sys_tick_handler(void);
 extern void bootloader(unsigned timeout);
 
 /* generic timers */
@@ -17,24 +31,29 @@ extern void bootloader(unsigned timeout);
 #define TIMER_DELAY	3
 extern volatile unsigned timer[NTIMERS];	/* each timer decrements every millisecond if > 0 */
 
-/* receive buffer for async reads */
+/* generic receive buffer for async reads */
 extern void buf_put(uint8_t b);
 extern int buf_get(void);
+
+/***************************************************************************** 
+ * Chip/board functions.
+ */
+
+/* LEDs */
+#define LED_ACTIVITY	1
+#define LED_BOOTLOADER	2
+
+extern void led_on(unsigned led);
+extern void led_off(unsigned led);
+extern void led_toggle(unsigned led);
 
 /* flash helpers from main_*.c */
 extern void flash_func_erase_all(void);
 extern void flash_func_write_word(unsigned address, uint32_t word);
 
-/* board functions */
-#define LED_ACTIVITY	1
-#define LED_BOOTLOADER	2
-
-extern void board_init(void);
-extern void led_on(unsigned led);
-extern void led_off(unsigned led);
-extern void led_toggle(unsigned led);
-
-/* interface in/output from interface module */
+/*****************************************************************************
+ * Interface in/output.
+ */
 extern void cinit(void *config);
 extern void cfini(void);
 extern int cin(void);

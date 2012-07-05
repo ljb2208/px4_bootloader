@@ -8,6 +8,7 @@
 #include <libopencm3/stm32/f1/gpio.h>
 #include <libopencm3/stm32/f1/flash.h>
 #include <libopencm3/stm32/usart.h>
+#include <libopencm3/stm32/systick.h>
 
 #include "bl.h"
 
@@ -22,11 +23,13 @@
 # define BOARD_LED_ON			gpio_clear
 # define BOARD_LED_OFF			gpio_set
 
-# define BOARD_USART			USART1
+# define BOARD_USART			USART2
+# define BOARD_USART_CLOCK_REGISTER	RCC_APB1ENR
+# define BOARD_USART_CLOCK_BIT		RCC_APB1ENR_USART2EN
+
 # define BOARD_PORT_USART		GPIOA
-# define BOARD_USART_CLOCK_REGISTER	RCC_APB2ENR
-# define BOARD_USART_CLOCK_BIT		RCC_APB2ENR_USART1EN
-# define BOARD_PIN_TX			GPIO_USART1_TX
+# define BOARD_PIN_TX			GPIO_USART2_TX
+# define BOARD_PIN_RX			GPIO_USART2_RX
 # define BOARD_USART_PIN_CLOCK_REGISTER	RCC_APB2ENR
 # define BOARD_USART_PIN_CLOCK_BIT	RCC_APB2ENR_IOPAEN
 
@@ -44,28 +47,30 @@
 #define FLASH_PAGESIZE			0x1000
 #define FLASH_BASE			0x08000000
 
-void
+/* board definition */
+struct boardinfo board_info = {
+	.board_type	= 10,
+	.board_rev	= 0,
+	.fw_base	= APP_LOAD_ADDRESS,
+	.fw_size	= APP_SIZE_MAX,
+
+	.systick_mhz	= 16,
+};
+
+static void board_init(void);
+
+static void
 board_init(void)
 {
-#warning LED config not set up yet
-
-#if 0
 	/* initialise LEDs */
 	rcc_peripheral_enable_clock(&BOARD_CLOCK_LEDS_REGISTER, BOARD_CLOCK_LEDS);
-	gpio_mode_setup(
-		BOARD_PORT_LEDS, 
-		GPIO_MODE_OUTPUT, 
-		GPIO_PUPD_NONE,
-		BOARD_PIN_LED_BOOTLOADER | BOARD_PIN_LED_ACTIVITY);
-	gpio_set_output_options(
-		BOARD_PORT_LEDS,
-		GPIO_OTYPE_PP,
-		GPIO_OSPEED_2MHZ,
+	gpio_set_mode(BOARD_PORT_LEDS,
+		GPIO_MODE_OUTPUT_50_MHZ,
+		GPIO_CNF_OUTPUT_PUSHPULL,
 		BOARD_PIN_LED_BOOTLOADER | BOARD_PIN_LED_ACTIVITY);
 	BOARD_LED_ON (
 		BOARD_PORT_LEDS,
 		BOARD_PIN_LED_BOOTLOADER | BOARD_PIN_LED_ACTIVITY);
-#endif
 
 #ifdef INTERFACE_USART
 	/* configure usart pins */
@@ -81,6 +86,7 @@ board_init(void)
 #ifdef INTERFACE_I2C
 # error I2C GPIO config not handled yet
 #endif
+
 }
 
 void
@@ -98,6 +104,7 @@ flash_func_write_word(unsigned address, uint32_t word)
 {
 	flash_program_word(address, word);
 }
+
 void
 led_on(unsigned led)
 {
@@ -146,8 +153,8 @@ main(void)
 	board_init();
 
 #ifdef INTERFACE_USART
-	/* XXX sniff for a USART connection to decide whether to wait in the bootloader */
-	timeout = 0;
+	/* XXX sniff for a USART connection to decide whether to wait in the bootloader? */
+	timeout = BOOTLOADER_DELAY;
 #endif
 
 #ifdef INTERFACE_I2C
@@ -155,7 +162,7 @@ main(void)
 #endif
 
 	/* XXX we could look at the backup SRAM to check for stay-in-bootloader instructions */
-#if 0
+
 	/* if we aren't expected to wait in the bootloader, try to boot immediately */
 	if (timeout == 0) {
 		/* try to boot immediately */
@@ -164,7 +171,7 @@ main(void)
 		/* if we returned, there is no app; go to the bootloader and stay there */
 		timeout = 0;
 	}
-#endif
+
 	/* configure the clock for bootloader activity */
 	/* XXX for now, don't touch the clock config */
 
