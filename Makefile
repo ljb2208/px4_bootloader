@@ -29,7 +29,7 @@ export COMMON_SRCS	 = bl.c
 #
 # Bootloaders to build
 #
-TARGETS			 = px4fmu_bl stm32f4discovery_bl
+TARGETS			 = px4fmu_bl px4flow_bl stm32f4discovery_bl
 # px4io_bl px4flow_bl
 
 all: $(TARGETS)
