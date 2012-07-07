@@ -32,6 +32,20 @@
 #
 # Serial firmware uploader for the PX4FMU bootloader
 #
+# The PX4 firmware file is a JSON-encoded Python object, containing
+# metadata fields and a zlib-compressed base64-encoded firmware image.
+#
+# The uploader uses the following fields from the firmware file:
+#
+# image
+#	The firmware that will be uploaded.
+# image_size
+#	The size of the firmware in bytes.
+# board_id
+#	The board for which the firmware is intended.
+# board_revision
+#	Currently only used for informational purposes.
+#
 
 import sys
 import argparse
@@ -49,25 +63,6 @@ class firmware(object):
 
 	desc = {}
 	image = bytearray()
-
-	#
-	# The .opfw file format that we read is described as:
-	#
-	# We have 100 bytes for the whole description.
-	#
-	# Only the first 40 are visible on the FirmwareIAP uavobject, the remaining
-	# 60 are ok to use for packaging and will be saved in the flash.
-	#
-	# Structure is:
-	#   4 bytes: header: "OpFw".
-	#   4 bytes: GIT commit tag (short version of SHA1).
-	#   4 bytes: Unix timestamp of compile time.
-	#   2 bytes: target platform. Should follow same rule as BOARD_TYPE and BOARD_REVISION in board define files.
-	#  26 bytes: commit tag if it is there, otherwise branch name. '-dirty' may be added if needed. Zero-padded.
-	#  ---- 40 bytes limit ---
-	#  20 bytes: SHA1 sum of the firmware.
-	#  40 bytes: free for now.
-	#
 
 	def __init__(self, path):
 
@@ -235,7 +230,7 @@ class uploader(object):
 		# Make sure we are doing the right thing
 		if self.board_type != fw.property('board_id'):
 			raise RuntimeError("Firmware not suitable for this board")
-		if self.fw_maxsize < fw.property('image-size'):
+		if self.fw_maxsize < fw.property('image_size'):
 			raise RuntimeError("Firmware image is too large for this board")
 
 		print("erase...")
