@@ -156,16 +156,16 @@ static const struct usb_config_descriptor config = {
 	.bConfigurationValue = 1,
 	.iConfiguration = 0,
 	.bmAttributes = 0x80,
-	.bMaxPower = 0x32,
+	.bMaxPower = 0xFA, /* Request 500 mA power (0xFA=250, get doubled in protocol) */
 
 	.interface = ifaces,
 };
 
 static const char *usb_strings[] = {
 	"x",
-	"Black Sphere Technologies",
-	"CDC-ACM Demo",
-	"DEMO",
+	"3D Robotics",
+	"PX4 Bootloader",
+	"PX4",
 };
 
 static int cdcacm_control_request(struct usb_setup_data *req, u8 **buf,
