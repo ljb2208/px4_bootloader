@@ -44,6 +44,14 @@ SECTIONS
                 _etext = .;
         } >rom
 
+        /* Just working around a bug in libopencm3 / vector.c */
+        . = ALIGN(4);
+        .ARM.exidx : {
+            __exidx_start = .;
+            *(.ARM.exidx* .gnu.linkonce.armexidx.*)
+            __exidx_end = .;
+        } >rom
+
         . = ORIGIN(ram);
 
         .data : AT(_etext) {
