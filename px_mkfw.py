@@ -58,6 +58,7 @@ def mkdesc():
 	proto['git_identity']	= ""
 	proto['build_time']	= 0
 	proto['image']		= base64.b64encode(bytearray())
+	proto['image_size']	= 0
 	return proto
 
 # Parse commandline
@@ -100,7 +101,7 @@ if args.git_identity != None:
 if args.image != None:
 	f = open(args.image, "rb")
 	bytes = f.read()
-	desc['image-size'] = len(bytes)
+	desc['image_size'] = len(bytes)
 	desc['image'] = base64.b64encode(zlib.compress(bytes,9))
 
 print json.dumps(desc, indent=4)
