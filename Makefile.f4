@@ -4,7 +4,7 @@
 
 BINARY		 = px4$(TARGET)_bl.elf
 
-OPENOCD		?= ../../sat/bin/openocd
+OPENOCD		?= openocd
 
 JTAGCONFIG ?= interface/olimex-jtag-tiny.cfg
 #JTAGCONFIG ?= interface/jtagkey-tiny.cfg

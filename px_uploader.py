@@ -58,6 +58,8 @@ import zlib
 import base64
 import time
 
+from sys import platform as _platform
+
 class firmware(object):
 	'''Loads a firmware file'''
 
@@ -266,7 +268,18 @@ while True:
 
 		# create an uploader attached to the port
 		try:
-			up = uploader(port, args.baud)
+			if "linux" in _platform:
+			# Linux, don't open Mac OS and Win ports
+				if not "COM" in port and not "tty.usb" in port:
+					up = uploader(port, args.baud)
+			elif "darwin" in _platform:
+				# OS X, don't open Windows and Linux ports
+				if not "COM" in port and not "ACM" in port:
+					up = uploader(port, args.baud)
+			elif "win" in _platform:
+				# Windows, don't open POSIX ports
+				if not "/" in port:
+					up = uploader(port, args.baud)
 		except:
 			# open failed, rate-limit our attempts
 			time.sleep(0.05)
