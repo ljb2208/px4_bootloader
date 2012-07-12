@@ -34,7 +34,7 @@ TARGETS			 = px4fmu_bl px4flow_bl stm32f4discovery_bl px4io_bl
 
 # px4io_bl px4flow_bl
 
-all: $(TARGETS)
+all:	$(TARGETS)
 
 clean:
 	rm -f *.elf
