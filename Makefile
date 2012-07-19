@@ -47,17 +47,17 @@ clean:
 # Specify the board type.
 #
 
-px4fmu_bl:
+px4fmu_bl: $(MAKEFILE_LIST)
 	make -f Makefile.f4 TARGET=fmu INTERFACE=USB BOARD=FMU
 
-stm32f4discovery_bl:
+stm32f4discovery_bl: $(MAKEFILE_LIST)
 	make -f Makefile.f4 TARGET=discovery INTERFACE=USB BOARD=DISCOVERY
 
-px4flow_bl:
+px4flow_bl: $(MAKEFILE_LIST)
 	make -f Makefile.f4 TARGET=flow INTERFACE=USB BOARD=FLOW
 
 # PX4IO waits in the bootloader for FMU to check the firmware version before startup.
 # Delay here is a bit over 48 days.  FMU should boot faster than that.
 #
-px4io_bl:
-	make -f Makefile.f1 TARGET=io INTERFACE=USART BOARD=IO
+px4io_bl: $(MAKEFILE_LIST)
+	make -f Makefile.f1 TARGET=io INTERFACE=USART BOARD=IO PX4_BOOTLOADER_DELAY=0xffffffff

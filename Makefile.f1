@@ -35,7 +35,7 @@ FLAGS		+= -mthumb -mcpu=cortex-m3\
 
 all:		$(BINARY)
 
-$(BINARY):	$(SRCS)
+$(BINARY):	$(SRCS) $(MAKEFILE_LIST)
 	$(CC) -o $@ $(SRCS) $(FLAGS)
 
 #upload: all flash flash-bootloader
