@@ -56,8 +56,9 @@ stm32f4discovery_bl: $(MAKEFILE_LIST)
 px4flow_bl: $(MAKEFILE_LIST)
 	make -f Makefile.f4 TARGET=flow INTERFACE=USB BOARD=FLOW
 
-# PX4IO waits in the bootloader for FMU to check the firmware version before startup.
-# Delay here is a bit over 48 days.  FMU should boot faster than that.
+# Default bootloader delay is *very* short, just long enough to catch
+# the board for recovery but not so long as to make restarting after a 
+# brownout problematic.
 #
 px4io_bl: $(MAKEFILE_LIST)
-	make -f Makefile.f1 TARGET=io INTERFACE=USART BOARD=IO PX4_BOOTLOADER_DELAY=0xffffffff
+	make -f Makefile.f1 TARGET=io INTERFACE=USART BOARD=IO PX4_BOOTLOADER_DELAY=200

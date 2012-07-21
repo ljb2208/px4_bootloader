@@ -32,12 +32,13 @@ cinit(void *config)
         /* and enable */
         usart_enable(usart);
 
-	usart_send_blocking(usart, 'B');
-	usart_send_blocking(usart, 'B');
-	usart_send_blocking(usart, 'B');
-	usart_send_blocking(usart, 'B');
 
 #if 0
+        usart_send_blocking(usart, 'B');
+        usart_send_blocking(usart, 'B');
+        usart_send_blocking(usart, 'B');
+        usart_send_blocking(usart, 'B');
+
         while (true) {
         	int c;
         	c = usart_recv_blocking(usart);
