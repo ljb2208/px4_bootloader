@@ -130,6 +130,14 @@ jump_to_app()
 	 */
 	if (app_base[0] == 0xffffffff)
 		return;
+	/*
+	 * The second word of the app is the entrypoint; it must point within the
+	 * flash area (or we have a bad flash).
+	 */
+	if (app_base[1] < board_info.fw_base)
+		return;
+	if (app_base[1] >= (board_info.fw_base + board_info.fw_size))
+		return;
 
 	/* just for paranoia's sake */
 	flash_lock();
