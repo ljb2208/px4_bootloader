@@ -12,11 +12,16 @@
 
 #include "bl.h"
 
+/*
+ * Yes, the nonsense required to configure GPIOs with this
+ * library is truly insane...
+ */
+
 #if defined(BOARD_IO)
 # define OSC_FREQ			24
 
-# define BOARD_PIN_LED_ACTIVITY		GPIO15
-# define BOARD_PIN_LED_BOOTLOADER	GPIO14
+# define BOARD_PIN_LED_ACTIVITY		GPIO14
+# define BOARD_PIN_LED_BOOTLOADER	GPIO15
 # define BOARD_PORT_LEDS		GPIOB
 # define BOARD_CLOCK_LEDS_REGISTER	RCC_APB2ENR
 # define BOARD_CLOCK_LEDS		RCC_APB2ENR_IOPBEN
@@ -32,6 +37,12 @@
 # define BOARD_PIN_RX			GPIO_USART2_RX
 # define BOARD_USART_PIN_CLOCK_REGISTER	RCC_APB2ENR
 # define BOARD_USART_PIN_CLOCK_BIT	RCC_APB2ENR_IOPAEN
+
+# define BOARD_FORCE_BL_PIN		GPIO5
+# define BOARD_FORCE_BL_PORT		GPIOB
+# define BOARD_FORCE_BL_CLOCK_REGISTER	RCC_APB2ENR
+# define BOARD_FORCE_BL_CLOCK_BIT	RCC_APB2ENR_IOPBEN
+# define BOARD_FORCE_BL_VALUE		BOARD_FORCE_BL_PIN
 
 # define BOARD_FLASH_PAGES		64
 # else
@@ -54,7 +65,7 @@ struct boardinfo board_info = {
 	.fw_base	= APP_LOAD_ADDRESS,
 	.fw_size	= APP_SIZE_MAX,
 
-	.systick_mhz	= 16,
+	.systick_mhz	= OSC_FREQ,
 };
 
 static void board_init(void);
@@ -62,6 +73,9 @@ static void board_init(void);
 static void
 board_init(void)
 {
+	/* run at a sane speed supported by all F1xx devices */
+	rcc_clock_setup_in_hsi_out_24mhz();
+
 	/* initialise LEDs */
 	rcc_peripheral_enable_clock(&BOARD_CLOCK_LEDS_REGISTER, BOARD_CLOCK_LEDS);
 	gpio_set_mode(BOARD_PORT_LEDS,
@@ -71,6 +85,15 @@ board_init(void)
 	BOARD_LED_ON (
 		BOARD_PORT_LEDS,
 		BOARD_PIN_LED_BOOTLOADER | BOARD_PIN_LED_ACTIVITY);
+
+	/* if we have one, enable the force-bootloader pin */
+#ifdef BOARD_FORCE_BL_PIN
+	rcc_peripheral_enable_clock(&BOARD_FORCE_BL_CLOCK_REGISTER, BOARD_FORCE_BL_CLOCK_BIT);
+	gpio_set_mode(BOARD_FORCE_BL_PORT,
+		GPIO_MODE_INPUT,
+		GPIO_CNF_INPUT_FLOAT,	/* depend on external pull */
+		BOARD_FORCE_BL_PIN);
+#endif
 
 #ifdef INTERFACE_USART
 	/* configure usart pins */
@@ -159,6 +182,12 @@ main(void)
 
 #ifdef INTERFACE_I2C
 # error I2C bootloader detection logic not implemented
+#endif
+
+#ifdef BOARD_FORCE_BL_PIN
+	/* if the force-BL pin state matches the state of the pin, wait in the bootloader forever */
+	if (BOARD_FORCE_BL_VALUE == gpio_get(BOARD_FORCE_BL_PORT, BOARD_FORCE_BL_PIN))
+		timeout = 0xffffffff;
 #endif
 
 	/* XXX we could look at the backup SRAM to check for stay-in-bootloader instructions */
