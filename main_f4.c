@@ -13,20 +13,24 @@
 #include "bl.h"
 
 /* flash parameters that we should not really know */
-static uint32_t flash_sectors[] = {
-	FLASH_SECTOR_1,
-	FLASH_SECTOR_2,
-	FLASH_SECTOR_3,
-	FLASH_SECTOR_4,
-	FLASH_SECTOR_5,
-	FLASH_SECTOR_6,
-	FLASH_SECTOR_7,
-	FLASH_SECTOR_8,
-	FLASH_SECTOR_9,
-	FLASH_SECTOR_10,
-	FLASH_SECTOR_11,
+static struct {
+	uint32_t	erase_code;
+	unsigned	size;
+} flash_sectors[] = {
+	/* flash sector zero reserved for bootloader */
+	{ FLASH_SECTOR_1, 16 * 1024},
+	{ FLASH_SECTOR_2, 16 * 1024},
+	{ FLASH_SECTOR_3, 16 * 1024},
+	{ FLASH_SECTOR_4, 64 * 1024},
+	{ FLASH_SECTOR_5, 128 * 1024},
+	{ FLASH_SECTOR_6, 128 * 1024},
+	{ FLASH_SECTOR_7, 128 * 1024},
+	{ FLASH_SECTOR_8, 128 * 1024},
+	{ FLASH_SECTOR_9, 128 * 1024},
+	{ FLASH_SECTOR_10, 128 * 1024},
+	{ FLASH_SECTOR_11, 128 * 1024}
 };
-static unsigned flash_nsectors = sizeof(flash_sectors) / sizeof(flash_sectors[0]);
+#define BOARD_FLASH_SECTORS (sizeof(flash_sectors) / sizeof(flash_sectors[0]))
 
 #ifdef BOARD_FMU
 # define BOARD_TYPE			5
@@ -161,20 +165,32 @@ board_init(void)
 
 }
 
-void
-flash_func_erase_all(void)
-{
-	unsigned i;
 
-	/* erase all but the sector containing the bootloader */
-	for (i = 0; i < flash_nsectors; i++)
-		flash_erase_sector(flash_sectors[i], FLASH_PROGRAM_X32);
+unsigned
+flash_func_sector_size(unsigned sector)
+{
+	if (sector < BOARD_FLASH_SECTORS)
+		return flash_sectors[sector].size;
+	return 0;
+}
+
+void
+flash_func_erase_sector(unsigned sector)
+{
+	if (sector < BOARD_FLASH_SECTORS)
+		flash_erase_sector(flash_sectors[sector].erase_code, FLASH_PROGRAM_X32);
 }
 
 void
 flash_func_write_word(unsigned address, uint32_t word)
 {
 	flash_program_word(address, word, FLASH_PROGRAM_X32);
+}
+
+uint32_t 
+flash_func_read_word(unsigned address)
+{
+	return *(uint32_t *)address;
 }
 
 void

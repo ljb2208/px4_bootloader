@@ -44,8 +44,9 @@
 # define BOARD_FORCE_BL_CLOCK_BIT	RCC_APB2ENR_IOPBEN
 # define BOARD_FORCE_BL_VALUE		BOARD_FORCE_BL_PIN
 
-# define BOARD_FLASH_PAGES		64
-# else
+# define BOARD_FLASH_SECTORS		60
+# define FLASH_SECTOR_SIZE		0x400
+#else
 # error Unrecognised BOARD definition
 #endif
 
@@ -54,9 +55,6 @@
 #else
 # define BOARD_INTERFACE_CONFIG		NULL
 #endif
-
-#define FLASH_PAGESIZE			0x1000
-#define FLASH_BASE			0x08000000
 
 /* board definition */
 struct boardinfo board_info = {
@@ -73,9 +71,6 @@ static void board_init(void);
 static void
 board_init(void)
 {
-	/* run at a sane speed supported by all F1xx devices */
-	rcc_clock_setup_in_hsi_out_24mhz();
-
 	/* initialise LEDs */
 	rcc_peripheral_enable_clock(&BOARD_CLOCK_LEDS_REGISTER, BOARD_CLOCK_LEDS);
 	gpio_set_mode(BOARD_PORT_LEDS,
@@ -112,20 +107,31 @@ board_init(void)
 
 }
 
-void
-flash_func_erase_all(void)
+unsigned
+flash_func_sector_size(unsigned sector)
 {
-	unsigned i;	
+	if (sector < BOARD_FLASH_SECTORS)
+		return FLASH_SECTOR_SIZE;
+	return 0;
+}
 
-	/* erase all but the sector containing the bootloader */
-	for (i = 0; i < BOARD_FLASH_PAGES; i++)
-		flash_erase_page(FLASH_BASE + (i * FLASH_PAGESIZE));
+void
+flash_func_erase_sector(unsigned sector)
+{
+	if (sector < BOARD_FLASH_SECTORS)
+		flash_erase_page(board_info.fw_base + (sector + FLASH_SECTOR_SIZE));
 }
 
 void
 flash_func_write_word(unsigned address, uint32_t word)
 {
 	flash_program_word(address, word);
+}
+
+uint32_t 
+flash_func_read_word(unsigned address)
+{
+	return *(uint32_t *)address;
 }
 
 void
@@ -202,7 +208,7 @@ main(void)
 	}
 
 	/* configure the clock for bootloader activity */
-	/* XXX for now, don't touch the clock config */
+	rcc_clock_setup_in_hsi_out_24mhz();
 
 	/* start the interface */
 	cinit(BOARD_INTERFACE_CONFIG);

@@ -76,6 +76,8 @@
 #define PROTO_DEVICE_BOARD_ID	2
 #define PROTO_DEVICE_BOARD_REV	3
 #define PROTO_DEVICE_FW_SIZE	4
+#define PROTO_DEVICE_FW_BASE	5
+#define PROTO_DEVICE_ERASE_SIZE	6
 
 
 static const uint32_t	bl_proto_rev = 2;	// value returned by PROTO_DEVICE_BL_REV
@@ -215,6 +217,12 @@ cin_wait(unsigned timeout)
 	return c;
 }
 
+static void
+cout_word(uint32_t val)
+{
+	cout((uint8_t *)&val, 4);
+}
+
 void
 bootloader(unsigned timeout)
 {
@@ -260,13 +268,13 @@ bootloader(unsigned timeout)
 		case PROTO_CHIP_VERIFY:
 		case PROTO_DEBUG:
 			/* expect EOC */
-			if (cin_wait(100) != PROTO_EOC)
+			if (cin_wait(1000) != PROTO_EOC)
 				goto cmd_bad;
 			break;
 
 		case PROTO_PROG_MULTI:
 			/* expect count */
-			arg = cin_wait(100);
+			arg = cin_wait(1000);
 			if (arg < 0)
 				goto cmd_bad;
 			break;
@@ -274,10 +282,10 @@ bootloader(unsigned timeout)
 		case PROTO_GET_DEVICE:
 		case PROTO_READ_MULTI:
 			/* expect arg/count then EOC */
-			arg = cin_wait(100);
+			arg = cin_wait(1000);
 			if (arg < 0)
 				goto cmd_bad;
-			if (cin_wait(100) != PROTO_EOC)
+			if (cin_wait(1000) != PROTO_EOC)
 				goto cmd_bad;
 			break;
 		}
@@ -313,18 +321,14 @@ bootloader(unsigned timeout)
 
 		case PROTO_CHIP_ERASE:          // erase the program area + read for programming
 			flash_unlock();
-			flash_func_erase_all();
+			for (i = 0; flash_func_sector_size(i) != 0; i++)
+				flash_func_erase_sector(i);
 			address = board_info.fw_base;
 			break;
 
 		case PROTO_CHIP_VERIFY:		// reset for verification of the program area
 			address = board_info.fw_base;
 
-			// program the deferred first word
-			if (first_word != 0xffffffff)
-				flash_func_write_word(address, first_word);
-
-			flash_lock();
 			break;
 
 		case PROTO_PROG_MULTI:		// program bytes
@@ -335,33 +339,57 @@ bootloader(unsigned timeout)
 			if (arg > sizeof(flash_buffer.c))
 				goto cmd_bad;
 			for (i = 0; i < arg; i++) {
-				c = cin_wait(100);
+				c = cin_wait(1000);
 				if (c < 0)
 					goto cmd_bad;
 				flash_buffer.c[i] = c;
 			}
-			if (cin_wait(100) != PROTO_EOC)
+			if (cin_wait(1000) != PROTO_EOC)
 				goto cmd_bad;
 			if (address == board_info.fw_base) {
 				// save the first word and don't program it until everything else is done
 				first_word = flash_buffer.w[0];
+				// replace first word with bits we can overwrite later
 				flash_buffer.w[0] = 0xffffffff;
 			}
-			for (i = 0; i < (arg / 4); i++) {
+			arg /= 4;
+			for (i = 0; i < arg; i++) {
 				flash_func_write_word(address, flash_buffer.w[i]);
 				address += 4;
 			}
 			break;
 
 		case PROTO_READ_MULTI:			// readback bytes
+			if (arg % 4)
+				goto cmd_bad;
 			if ((address + arg) > fw_end)
 				goto cmd_bad;
-			cout((uint8_t *)address, arg);
-			address += arg;
+			arg /= 4;
+
+			/* handle readback of the not-yet-programmed first word */
+			if ((address == board_info.fw_base) && (first_word != 0xffffffff)) {
+				cout((uint8_t *)&first_word, 4);
+				address += 4;
+				arg--;
+			}
+			while (arg-- > 0) {
+				cout_word(flash_func_read_word(address));
+				address += 4;
+			}
 			break;
 
 		case PROTO_BOOT:
-			// just jump to the app
+			// program the deferred first word
+			if (first_word != 0xffffffff) {
+				flash_func_write_word(address, first_word);
+
+				// revert in case the flash was bad...
+				first_word = 0xffffffff;
+			}
+
+			flash_lock();
+
+			// quiesce and jump to the app
 			return;
 
 		case PROTO_DEBUG:

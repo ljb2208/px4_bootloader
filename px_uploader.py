@@ -252,7 +252,7 @@ class uploader(object):
 # Parse commandline arguments
 parser = argparse.ArgumentParser(description="Firmware uploader for the PX autopilot system.")
 parser.add_argument('--port', action="store", required=True, help="Serial port(s) to which the FMU may be attached")
-parser.add_argument('--baud', action="store", required=True, help="Baud rate of the serial port (default is 115200)")
+parser.add_argument('--baud', action="store", type=int, default=115200, help="Baud rate of the serial port (default is 115200), only required for true serial ports.")
 parser.add_argument('firmware', action="store", help="Firmware file to be uploaded")
 args = parser.parse_args()
 
