@@ -76,9 +76,6 @@
 #define PROTO_DEVICE_BOARD_ID	2
 #define PROTO_DEVICE_BOARD_REV	3
 #define PROTO_DEVICE_FW_SIZE	4
-#define PROTO_DEVICE_FW_BASE	5
-#define PROTO_DEVICE_ERASE_SIZE	6
-
 
 static const uint32_t	bl_proto_rev = 2;	// value returned by PROTO_DEVICE_BL_REV
 
