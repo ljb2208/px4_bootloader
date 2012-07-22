@@ -60,7 +60,6 @@
 struct boardinfo board_info = {
 	.board_type	= 10,
 	.board_rev	= 0,
-	.fw_base	= APP_LOAD_ADDRESS,
 	.fw_size	= APP_SIZE_MAX,
 
 	.systick_mhz	= OSC_FREQ,
@@ -119,19 +118,19 @@ void
 flash_func_erase_sector(unsigned sector)
 {
 	if (sector < BOARD_FLASH_SECTORS)
-		flash_erase_page(board_info.fw_base + (sector + FLASH_SECTOR_SIZE));
+		flash_erase_page(APP_LOAD_ADDRESS + (sector + FLASH_SECTOR_SIZE));
 }
 
 void
 flash_func_write_word(unsigned address, uint32_t word)
 {
-	flash_program_word(address, word);
+	flash_program_word(address + APP_LOAD_ADDRESS, word);
 }
 
 uint32_t 
 flash_func_read_word(unsigned address)
 {
-	return *(uint32_t *)address;
+	return *(uint32_t *)(address + APP_LOAD_ADDRESS);
 }
 
 void

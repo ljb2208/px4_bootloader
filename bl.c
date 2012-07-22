@@ -124,7 +124,7 @@ do_jump(uint32_t stacktop, uint32_t entrypoint)
 void
 jump_to_app()
 {
-	const uint32_t *app_base = (const uint32_t *)board_info.fw_base;
+	const uint32_t *app_base = (const uint32_t *)APP_LOAD_ADDRESS;
 
 	/*
 	 * We refuse to program the first word of the app until the upload is marked
@@ -136,9 +136,9 @@ jump_to_app()
 	 * The second word of the app is the entrypoint; it must point within the
 	 * flash area (or we have a bad flash).
 	 */
-	if (app_base[1] < board_info.fw_base)
+	if (app_base[1] < APP_LOAD_ADDRESS)
 		return;
-	if (app_base[1] >= (board_info.fw_base + board_info.fw_size))
+	if (app_base[1] >= (APP_LOAD_ADDRESS + board_info.fw_size))
 		return;
 
 	/* just for paranoia's sake */
@@ -156,7 +156,7 @@ jump_to_app()
 	cfini();
 
 	/* switch exception handlers to the application */
-	SCB_VTOR = board_info.fw_base;
+	SCB_VTOR = APP_LOAD_ADDRESS;
 
 	/* extract the stack and entrypoint from the app vector table and go */
 	do_jump(app_base[0], app_base[1]);
@@ -229,8 +229,7 @@ bootloader(unsigned timeout)
 	int             c;
 	int		arg = 0;
 	unsigned	i;
-	unsigned	fw_end = board_info.fw_base + board_info.fw_size;
-	unsigned	address = fw_end;	/* force erase before upload will work */
+	unsigned	address = board_info.fw_size;	/* force erase before upload will work */
 	uint32_t	first_word = 0xffffffff;
 	static union {
 		uint8_t		c[256];
@@ -323,18 +322,17 @@ bootloader(unsigned timeout)
 			flash_unlock();
 			for (i = 0; flash_func_sector_size(i) != 0; i++)
 				flash_func_erase_sector(i);
-			address = board_info.fw_base;
+			address = 0;
 			break;
 
 		case PROTO_CHIP_VERIFY:		// reset for verification of the program area
-			address = board_info.fw_base;
-
+			address = 0;
 			break;
 
 		case PROTO_PROG_MULTI:		// program bytes
 			if (arg % 4)
 				goto cmd_bad;
-			if ((address + arg) > fw_end)
+			if ((address + arg) > board_info.fw_size)
 				goto cmd_bad;
 			if (arg > sizeof(flash_buffer.c))
 				goto cmd_bad;
@@ -346,7 +344,7 @@ bootloader(unsigned timeout)
 			}
 			if (cin_wait(1000) != PROTO_EOC)
 				goto cmd_bad;
-			if (address == board_info.fw_base) {
+			if (address == 0) {
 				// save the first word and don't program it until everything else is done
 				first_word = flash_buffer.w[0];
 				// replace first word with bits we can overwrite later
@@ -362,12 +360,12 @@ bootloader(unsigned timeout)
 		case PROTO_READ_MULTI:			// readback bytes
 			if (arg % 4)
 				goto cmd_bad;
-			if ((address + arg) > fw_end)
+			if ((address + arg) > board_info.fw_size)
 				goto cmd_bad;
 			arg /= 4;
 
 			/* handle readback of the not-yet-programmed first word */
-			if ((address == board_info.fw_base) && (first_word != 0xffffffff)) {
+			if ((address == 0) && (first_word != 0xffffffff)) {
 				cout((uint8_t *)&first_word, 4);
 				address += 4;
 				arg--;
@@ -381,13 +379,11 @@ bootloader(unsigned timeout)
 		case PROTO_BOOT:
 			// program the deferred first word
 			if (first_word != 0xffffffff) {
-				flash_func_write_word(address, first_word);
+				flash_func_write_word(0, first_word);
 
 				// revert in case the flash was bad...
 				first_word = 0xffffffff;
 			}
-
-			flash_lock();
 
 			// quiesce and jump to the app
 			return;

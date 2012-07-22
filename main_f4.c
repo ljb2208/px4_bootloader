@@ -109,7 +109,6 @@ static struct {
 struct boardinfo board_info = {
 	.board_type	= BOARD_TYPE,
 	.board_rev	= 0,
-	.fw_base	= APP_LOAD_ADDRESS,
 	.fw_size	= APP_SIZE_MAX,
 
 	.systick_mhz	= 168,
@@ -184,13 +183,13 @@ flash_func_erase_sector(unsigned sector)
 void
 flash_func_write_word(unsigned address, uint32_t word)
 {
-	flash_program_word(address, word, FLASH_PROGRAM_X32);
+	flash_program_word(address + APP_LOAD_ADDRESS, word, FLASH_PROGRAM_X32);
 }
 
 uint32_t 
 flash_func_read_word(unsigned address)
 {
-	return *(uint32_t *)address;
+	return *(uint32_t *)(address + APP_LOAD_ADDRESS);
 }
 
 void

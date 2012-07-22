@@ -12,7 +12,6 @@
 struct boardinfo {
 	uint32_t	board_type;
 	uint32_t	board_rev;
-	uint32_t	fw_base;
 	uint32_t	fw_size;
 	uint32_t	systick_mhz;		/* systick input clock */
 
